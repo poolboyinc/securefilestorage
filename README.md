@@ -1,4 +1,4 @@
-# 🔐 SecureFileStorage
+#  SecureFileStorage
 
 A **proof-of-concept** secure file storage system implementing multi-layer encryption with a microservices architecture. Built as an academic project to demonstrate cryptographic principles, secure system design, and modern development practices.
 
@@ -7,9 +7,9 @@ A **proof-of-concept** secure file storage system implementing multi-layer encry
 [![Blazor](https://img.shields.io/badge/Blazor-512BD4?style=flat&logo=blazor)](https://blazor.net/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> ⚠️ **Academic Project Notice**: This is a proof-of-concept implementation created for educational purposes. It demonstrates cryptographic concepts but is **not production-ready** due to performance and security limitations outlined below.
+>  **Academic Project Notice**: This is a proof-of-concept implementation created for educational purposes. It demonstrates cryptographic concepts but is **not production-ready** due to performance and security limitations outlined below.
 
-## 🌟 Features
+##  Features
 
 - **Multi-layer Encryption**: AES-256-CBC + XOR obfuscation
 - **File Integrity**: SHA-512 hash verification
@@ -19,7 +19,7 @@ A **proof-of-concept** secure file storage system implementing multi-layer encry
 - **Modern UI**: Blazor WebAssembly frontend
 - **RESTful API**: Clean API design with proper error handling
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -35,7 +35,7 @@ A **proof-of-concept** secure file storage system implementing multi-layer encry
                └────────────┘ └────────┘ └─────────────┘
 ```
 
-## 🔧 Technology Stack
+##  Technology Stack
 
 ### Backend
 - **.NET 8** - Modern C# framework
@@ -55,7 +55,7 @@ A **proof-of-concept** secure file storage system implementing multi-layer encry
 - **Bootstrap 5** - Responsive design
 - **JavaScript** - File handling utilities
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
@@ -108,7 +108,7 @@ A **proof-of-concept** secure file storage system implementing multi-layer encry
    - Web UI: `https://localhost:7002`
    - Swagger: `https://localhost:7001/swagger`
 
-## 🔐 Encryption Process
+##  Encryption Process
 
 ### File Upload Flow
 ```csharp
