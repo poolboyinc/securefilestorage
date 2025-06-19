@@ -1,0 +1,678 @@
+2025-06-18 07:54:17.784 +02:00 [INF] Executed DbCommand (42ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 07:54:17.850 +02:00 [INF] Executed DbCommand (11ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 07:54:18.223 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 07:54:18.588 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 07:54:18.590 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 07:54:18.609 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 07:54:18.611 +02:00 [INF] Database migration completed successfully
+2025-06-18 07:54:18.614 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 07:54:18.629 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 07:54:18.723 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 07:54:18.725 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 07:54:18.726 +02:00 [INF] Hosting environment: Development
+2025-06-18 07:54:18.726 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 07:56:18.091 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json 73
+2025-06-18 07:56:18.153 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 07:56:18.195 +02:00 [INF] Request c9cd25bb-64d1-4c22-8aaf-190e9d096dee: POST /api/auth/login
+2025-06-18 07:56:18.199 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 07:56:18.252 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 07:56:18.770 +02:00 [INF] Executed DbCommand (28ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 07:56:19.122 +02:00 [INF] Executed DbCommand (31ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 07:56:19.258 +02:00 [INF] Executed DbCommand (13ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 07:56:19.269 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 07:56:19.289 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 1028.8713ms
+2025-06-18 07:56:19.292 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 07:56:19.294 +02:00 [INF] Response c9cd25bb-64d1-4c22-8aaf-190e9d096dee: 200
+2025-06-18 07:56:19.302 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 1212.9201ms
+2025-06-18 08:04:32.319 +02:00 [INF] Application is shutting down...
+2025-06-18 08:04:46.518 +02:00 [INF] Executed DbCommand (36ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:04:46.561 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:04:46.940 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:04:47.319 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:04:47.321 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:04:47.331 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 08:04:47.333 +02:00 [INF] Database migration completed successfully
+2025-06-18 08:04:47.337 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 08:04:47.350 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 08:04:47.395 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 08:04:47.397 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 08:04:47.398 +02:00 [INF] Hosting environment: Development
+2025-06-18 08:04:47.398 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 08:05:29.797 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-06-18 08:05:29.848 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 08:05:29.852 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:05:29.858 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 62.8523ms
+2025-06-18 08:05:29.865 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-06-18 08:05:29.883 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:05:29.940 +02:00 [INF] Request 42675dee-507f-4192-80ab-0c0dd0d85f73: POST /api/auth/login
+2025-06-18 08:05:29.944 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:05:29.968 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 08:05:30.383 +02:00 [INF] Executed DbCommand (11ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 08:05:30.689 +02:00 [INF] Executed DbCommand (18ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 08:05:30.780 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 08:05:30.793 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 08:05:30.809 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 834.2971ms
+2025-06-18 08:05:30.812 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:05:30.813 +02:00 [INF] Response 42675dee-507f-4192-80ab-0c0dd0d85f73: 200
+2025-06-18 08:05:30.821 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 955.3518ms
+2025-06-18 08:07:49.318 +02:00 [INF] Application is shutting down...
+2025-06-18 08:10:57.908 +02:00 [INF] Executed DbCommand (34ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:10:57.953 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:10:58.322 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:10:58.735 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:10:58.738 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:10:58.751 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 08:10:58.752 +02:00 [INF] Database migration completed successfully
+2025-06-18 08:10:58.757 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 08:10:58.771 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 08:10:58.820 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 08:10:58.822 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 08:10:58.823 +02:00 [INF] Hosting environment: Development
+2025-06-18 08:10:58.824 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 08:11:36.031 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-06-18 08:11:36.076 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 08:11:36.079 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:11:36.086 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 56.0894ms
+2025-06-18 08:11:36.093 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-06-18 08:11:36.100 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:11:36.196 +02:00 [INF] Request a8a01267-6ec4-4963-9455-9579cad7cb36: POST /api/auth/login
+2025-06-18 08:11:36.198 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:11:36.224 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 08:11:36.593 +02:00 [INF] Executed DbCommand (9ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 08:11:36.870 +02:00 [INF] Executed DbCommand (16ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 08:11:36.946 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 08:11:36.956 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 08:11:36.972 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 741.6041ms
+2025-06-18 08:11:36.974 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:11:36.975 +02:00 [INF] Response a8a01267-6ec4-4963-9455-9579cad7cb36: 200
+2025-06-18 08:11:36.982 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 889.6426ms
+2025-06-18 08:11:54.496 +02:00 [INF] Application is shutting down...
+2025-06-18 08:13:55.601 +02:00 [INF] Executed DbCommand (29ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:13:55.638 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:13:55.948 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:13:56.254 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:13:56.256 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:13:56.264 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 08:13:56.266 +02:00 [INF] Database migration completed successfully
+2025-06-18 08:13:56.269 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 08:13:56.279 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 08:13:56.319 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 08:13:56.321 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 08:13:56.322 +02:00 [INF] Hosting environment: Development
+2025-06-18 08:13:56.323 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 08:14:14.189 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-06-18 08:14:14.237 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 08:14:14.238 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:14:14.245 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 57.7405ms
+2025-06-18 08:14:14.251 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-06-18 08:14:14.258 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:14:14.351 +02:00 [INF] Request 9dd7913f-c9f0-48b2-9766-9cfe248ba3ce: POST /api/auth/login
+2025-06-18 08:14:14.355 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:14:14.380 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 08:14:14.746 +02:00 [INF] Executed DbCommand (9ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 08:14:15.024 +02:00 [INF] Executed DbCommand (21ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 08:14:15.104 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 08:14:15.114 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 08:14:15.128 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 743.9215ms
+2025-06-18 08:14:15.131 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:14:15.133 +02:00 [INF] Response 9dd7913f-c9f0-48b2-9766-9cfe248ba3ce: 200
+2025-06-18 08:14:15.138 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 887.3101ms
+2025-06-18 08:14:33.331 +02:00 [INF] Application is shutting down...
+2025-06-18 08:15:09.648 +02:00 [INF] Executed DbCommand (29ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:15:09.686 +02:00 [INF] Executed DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:15:09.994 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:15:10.308 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:15:10.310 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:15:10.318 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 08:15:10.320 +02:00 [INF] Database migration completed successfully
+2025-06-18 08:15:10.322 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 08:15:10.333 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 08:15:10.377 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 08:15:10.379 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 08:15:10.379 +02:00 [INF] Hosting environment: Development
+2025-06-18 08:15:10.380 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 08:15:35.939 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-06-18 08:15:35.969 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 08:15:35.970 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:15:35.976 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 37.7221ms
+2025-06-18 08:15:35.981 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-06-18 08:15:35.985 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:15:36.045 +02:00 [INF] Request bfa4fe14-3338-4b9c-a50c-9f17134edba6: POST /api/auth/login
+2025-06-18 08:15:36.047 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:15:36.062 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 08:15:36.279 +02:00 [INF] Executed DbCommand (6ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 08:15:36.440 +02:00 [INF] Executed DbCommand (14ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 08:15:36.484 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 08:15:36.489 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 08:15:36.498 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 431.6431ms
+2025-06-18 08:15:36.499 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:15:36.500 +02:00 [INF] Response bfa4fe14-3338-4b9c-a50c-9f17134edba6: 200
+2025-06-18 08:15:36.503 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 522.3169ms
+2025-06-18 08:20:35.821 +02:00 [INF] Application is shutting down...
+2025-06-18 08:20:41.353 +02:00 [INF] Executed DbCommand (30ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:20:41.391 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:20:41.692 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:20:42.000 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:20:42.002 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:20:42.012 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 08:20:42.013 +02:00 [INF] Database migration completed successfully
+2025-06-18 08:20:42.017 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 08:20:42.028 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 08:20:42.069 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 08:20:42.071 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 08:20:42.073 +02:00 [INF] Hosting environment: Development
+2025-06-18 08:20:42.074 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 08:21:07.013 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-06-18 08:21:07.041 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 08:21:07.043 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:21:07.047 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 35.0021ms
+2025-06-18 08:21:07.051 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-06-18 08:21:07.055 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:21:07.111 +02:00 [INF] Request 632de888-0890-4eef-a2e7-e5b613a4332e: POST /api/auth/login
+2025-06-18 08:21:07.113 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:21:07.130 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 08:21:07.342 +02:00 [INF] Executed DbCommand (6ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 08:21:07.491 +02:00 [INF] Executed DbCommand (5ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 08:21:07.535 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 08:21:07.541 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 08:21:07.549 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 415.8401ms
+2025-06-18 08:21:07.550 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:21:07.551 +02:00 [INF] Response 632de888-0890-4eef-a2e7-e5b613a4332e: 200
+2025-06-18 08:21:07.555 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 503.3611ms
+2025-06-18 08:21:41.330 +02:00 [INF] Application is shutting down...
+2025-06-18 08:28:33.885 +02:00 [INF] Executed DbCommand (32ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:28:33.926 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:28:34.233 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:28:34.549 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 08:28:34.551 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 08:28:34.561 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 08:28:34.562 +02:00 [INF] Database migration completed successfully
+2025-06-18 08:28:34.566 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 08:28:34.578 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 08:28:34.621 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 08:28:34.623 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 08:28:34.623 +02:00 [INF] Hosting environment: Development
+2025-06-18 08:28:34.624 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 08:28:51.412 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-06-18 08:28:51.442 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 08:28:51.444 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:28:51.448 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 36.6595ms
+2025-06-18 08:28:51.453 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-06-18 08:28:51.457 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:28:51.512 +02:00 [INF] Request 87ba20ac-1dc0-440d-b5ad-60c84a3bca44: POST /api/auth/login
+2025-06-18 08:28:51.514 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:28:51.529 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 08:28:51.741 +02:00 [INF] Executed DbCommand (6ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 08:28:51.902 +02:00 [INF] Executed DbCommand (13ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 08:28:51.950 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 08:28:51.955 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 08:28:51.965 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 430.9351ms
+2025-06-18 08:28:51.966 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 08:28:51.967 +02:00 [INF] Response 87ba20ac-1dc0-440d-b5ad-60c84a3bca44: 200
+2025-06-18 08:28:51.971 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 518.1635ms
+2025-06-18 08:28:52.064 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - null null
+2025-06-18 08:28:52.067 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:28:52.068 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - 204 null null 3.6258ms
+2025-06-18 08:28:52.070 +02:00 [INF] Request starting HTTP/1.1 GET http://localhost:5243/api/securefiles - null null
+2025-06-18 08:28:52.075 +02:00 [INF] CORS policy execution successful.
+2025-06-18 08:28:52.081 +02:00 [INF] Request 5dff8ba2-f14e-497f-b8c2-43e00e9584f6: GET /api/securefiles
+2025-06-18 08:28:52.082 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-06-18 08:28:52.086 +02:00 [INF] Route matched with {action = "GetUserFiles", controller = "SecureFiles"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetUserFiles() on controller SecureFileStorage.API.Controllers.SecureFilesController (SecureFileStorage.API).
+2025-06-18 08:28:52.092 +02:00 [INF] User 71edeb10-4271-47e2-9b43-71cd805f4680 retrieving files
+2025-06-18 08:28:52.160 +02:00 [INF] Executed DbCommand (5ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."Id", s."ContentType", s."DeletedAt", s."EncryptedChachaKey", s."EncryptedFileKey", s."EncryptedMetadata", s."EncryptionAlgorithm", s."FileHash", s."FileName", s."FileSize", s."HashAlgorithm", s."IV", s."IsDeleted", s."KeyId", s."OriginalFileName", s."OwnerId", s."Salt", s."StoragePath", s."Tag", s."UploadedAt"
+FROM "SecureFiles" AS s
+WHERE s."OwnerId" = @__userId_0 AND NOT (s."IsDeleted")
+ORDER BY s."UploadedAt" DESC
+2025-06-18 08:28:52.186 +02:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[SecureFileStorage.Core.DTOs.FileDto, SecureFileStorage.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2025-06-18 08:28:52.198 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API) in 111.5859ms
+2025-06-18 08:28:52.200 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-06-18 08:28:52.201 +02:00 [INF] Response 5dff8ba2-f14e-497f-b8c2-43e00e9584f6: 200
+2025-06-18 08:28:52.201 +02:00 [INF] Request finished HTTP/1.1 GET http://localhost:5243/api/securefiles - 200 null application/json; charset=utf-8 131.5912ms
+2025-06-18 08:29:13.752 +02:00 [INF] Application is shutting down...
+2025-06-18 10:40:51.337 +02:00 [INF] Executed DbCommand (35ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 10:40:51.383 +02:00 [INF] Executed DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 10:40:51.760 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 10:40:52.154 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-06-18 10:40:52.156 +02:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-06-18 10:40:52.169 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-06-18 10:40:52.171 +02:00 [INF] Database migration completed successfully
+2025-06-18 10:40:52.175 +02:00 [INF] Starting Secure File Storage API
+2025-06-18 10:40:52.187 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-06-18 10:40:52.237 +02:00 [INF] Now listening on: http://localhost:5243
+2025-06-18 10:40:52.240 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-06-18 10:40:52.241 +02:00 [INF] Hosting environment: Development
+2025-06-18 10:40:52.242 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-06-18 10:42:11.924 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-06-18 10:42:11.996 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-06-18 10:42:12.000 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:12.010 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 88.5631ms
+2025-06-18 10:42:12.020 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-06-18 10:42:12.031 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:12.145 +02:00 [INF] Request de661197-01ad-4a2b-b890-85803cc21681: POST /api/auth/login
+2025-06-18 10:42:12.150 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 10:42:12.178 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-06-18 10:42:12.658 +02:00 [INF] Executed DbCommand (16ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 10:42:13.006 +02:00 [INF] Executed DbCommand (21ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-06-18 10:42:13.099 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-06-18 10:42:13.112 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-06-18 10:42:13.130 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 943.1367ms
+2025-06-18 10:42:13.133 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-06-18 10:42:13.135 +02:00 [INF] Response de661197-01ad-4a2b-b890-85803cc21681: 200
+2025-06-18 10:42:13.143 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 1123.2867ms
+2025-06-18 10:42:13.303 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - null null
+2025-06-18 10:42:13.309 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:13.311 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - 204 null null 7.7248ms
+2025-06-18 10:42:13.316 +02:00 [INF] Request starting HTTP/1.1 GET http://localhost:5243/api/securefiles - null null
+2025-06-18 10:42:13.325 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:13.332 +02:00 [INF] Request ca33f4fe-9149-4ddb-be0d-8d3e3b5361a7: GET /api/securefiles
+2025-06-18 10:42:13.333 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-06-18 10:42:13.340 +02:00 [INF] Route matched with {action = "GetUserFiles", controller = "SecureFiles"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetUserFiles() on controller SecureFileStorage.API.Controllers.SecureFilesController (SecureFileStorage.API).
+2025-06-18 10:42:13.352 +02:00 [INF] User 71edeb10-4271-47e2-9b43-71cd805f4680 retrieving files
+2025-06-18 10:42:13.444 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."Id", s."ContentType", s."DeletedAt", s."EncryptedChachaKey", s."EncryptedFileKey", s."EncryptedMetadata", s."EncryptionAlgorithm", s."FileHash", s."FileName", s."FileSize", s."HashAlgorithm", s."IV", s."IsDeleted", s."KeyId", s."OriginalFileName", s."OwnerId", s."Salt", s."StoragePath", s."Tag", s."UploadedAt"
+FROM "SecureFiles" AS s
+WHERE s."OwnerId" = @__userId_0 AND NOT (s."IsDeleted")
+ORDER BY s."UploadedAt" DESC
+2025-06-18 10:42:13.492 +02:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[SecureFileStorage.Core.DTOs.FileDto, SecureFileStorage.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2025-06-18 10:42:13.514 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API) in 170.5036ms
+2025-06-18 10:42:13.516 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-06-18 10:42:13.518 +02:00 [INF] Response ca33f4fe-9149-4ddb-be0d-8d3e3b5361a7: 200
+2025-06-18 10:42:13.520 +02:00 [INF] Request finished HTTP/1.1 GET http://localhost:5243/api/securefiles - 200 null application/json; charset=utf-8 203.2694ms
+2025-06-18 10:42:52.819 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles/upload - null null
+2025-06-18 10:42:52.826 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:52.827 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles/upload - 204 null null 8.0063ms
+2025-06-18 10:42:52.832 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/securefiles/upload - multipart/form-data; boundary="62b2762d-4b08-4300-a64c-c4cc07182f9b" 221
+2025-06-18 10:42:52.835 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:52.842 +02:00 [INF] Request 70b0c9bc-2950-4592-bccf-bd4eebb6c59d: POST /api/securefiles/upload
+2025-06-18 10:42:52.843 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.UploadFile (SecureFileStorage.API)'
+2025-06-18 10:42:52.850 +02:00 [INF] Route matched with {action = "UploadFile", controller = "SecureFiles"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] UploadFile(Microsoft.AspNetCore.Http.IFormFile) on controller SecureFileStorage.API.Controllers.SecureFilesController (SecureFileStorage.API).
+2025-06-18 10:42:52.873 +02:00 [INF] User 71edeb10-4271-47e2-9b43-71cd805f4680 attempting to upload file: bilo sta.txt
+2025-06-18 10:42:52.993 +02:00 [INF] Starting encryption for file bilo sta.txt
+2025-06-18 10:42:53.045 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@__id_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Id" = @__id_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 10:42:53.111 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@__id_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Id" = @__id_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-06-18 10:42:53.142 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?' (DbType = DateTime), @p3='?' (DbType = Binary), @p4='?' (DbType = Binary), @p5='?' (DbType = Binary), @p6='?', @p7='?' (DbType = Binary), @p8='?', @p9='?' (DbType = Int64), @p10='?', @p11='?' (DbType = Binary), @p12='?' (DbType = Boolean), @p13='?', @p14='?', @p15='?' (DbType = Guid), @p16='?' (DbType = Binary), @p17='?', @p18='?' (DbType = Binary), @p19='?' (DbType = DateTime)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "SecureFiles" ("Id", "ContentType", "DeletedAt", "EncryptedChachaKey", "EncryptedFileKey", "EncryptedMetadata", "EncryptionAlgorithm", "FileHash", "FileName", "FileSize", "HashAlgorithm", "IV", "IsDeleted", "KeyId", "OriginalFileName", "OwnerId", "Salt", "StoragePath", "Tag", "UploadedAt")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19);
+2025-06-18 10:42:53.176 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?' (DbType = Guid), @p4='?', @p5='?' (DbType = DateTime), @p6='?', @p7='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "FileAuditLogs" ("Id", "Action", "Details", "FileId", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7);
+2025-06-18 10:42:53.180 +02:00 [INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType2`4[[System.Guid, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int64, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2025-06-18 10:42:53.187 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.SecureFilesController.UploadFile (SecureFileStorage.API) in 334.915ms
+2025-06-18 10:42:53.190 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.UploadFile (SecureFileStorage.API)'
+2025-06-18 10:42:53.191 +02:00 [INF] Response 70b0c9bc-2950-4592-bccf-bd4eebb6c59d: 200
+2025-06-18 10:42:53.192 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/securefiles/upload - 200 null application/json; charset=utf-8 360.6196ms
+2025-06-18 10:42:53.201 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - null null
+2025-06-18 10:42:53.204 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:53.205 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - 204 null null 3.522ms
+2025-06-18 10:42:53.209 +02:00 [INF] Request starting HTTP/1.1 GET http://localhost:5243/api/securefiles - null null
+2025-06-18 10:42:53.211 +02:00 [INF] CORS policy execution successful.
+2025-06-18 10:42:53.215 +02:00 [INF] Request 45781c09-2d38-4bbe-bcc6-eb7b56e7d127: GET /api/securefiles
+2025-06-18 10:42:53.216 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-06-18 10:42:53.217 +02:00 [INF] Route matched with {action = "GetUserFiles", controller = "SecureFiles"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetUserFiles() on controller SecureFileStorage.API.Controllers.SecureFilesController (SecureFileStorage.API).
+2025-06-18 10:42:53.227 +02:00 [INF] User 71edeb10-4271-47e2-9b43-71cd805f4680 retrieving files
+2025-06-18 10:42:53.232 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."Id", s."ContentType", s."DeletedAt", s."EncryptedChachaKey", s."EncryptedFileKey", s."EncryptedMetadata", s."EncryptionAlgorithm", s."FileHash", s."FileName", s."FileSize", s."HashAlgorithm", s."IV", s."IsDeleted", s."KeyId", s."OriginalFileName", s."OwnerId", s."Salt", s."StoragePath", s."Tag", s."UploadedAt"
+FROM "SecureFiles" AS s
+WHERE s."OwnerId" = @__userId_0 AND NOT (s."IsDeleted")
+ORDER BY s."UploadedAt" DESC
+2025-06-18 10:42:53.235 +02:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[SecureFileStorage.Core.DTOs.FileDto, SecureFileStorage.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2025-06-18 10:42:53.236 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API) in 17.323ms
+2025-06-18 10:42:53.238 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-06-18 10:42:53.239 +02:00 [INF] Response 45781c09-2d38-4bbe-bcc6-eb7b56e7d127: 200
+2025-06-18 10:42:53.240 +02:00 [INF] Request finished HTTP/1.1 GET http://localhost:5243/api/securefiles - 200 null application/json; charset=utf-8 31.0751ms
+2025-06-18 10:43:09.262 +02:00 [INF] Application is shutting down...

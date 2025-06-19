@@ -1,0 +1,15 @@
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\bin\Debug\net8.0\SecureFileStorage.Cryptography.deps.json
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\bin\Debug\net8.0\SecureFileStorage.Cryptography.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\bin\Debug\net8.0\SecureFileStorage.Cryptography.pdb
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\bin\Debug\net8.0\SecureFileStorage.Core.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\bin\Debug\net8.0\SecureFileStorage.Core.pdb
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.csproj.AssemblyReference.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.AssemblyInfoInputs.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.AssemblyInfo.cs
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.csproj.CoreCompileInputs.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFi.0A79A88C.Up2Date
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\refint\SecureFileStorage.Cryptography.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.pdb
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\ref\SecureFileStorage.Cryptography.dll

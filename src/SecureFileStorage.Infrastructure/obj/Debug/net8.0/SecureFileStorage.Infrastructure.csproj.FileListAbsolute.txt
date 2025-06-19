@@ -1,0 +1,17 @@
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\bin\Debug\net8.0\SecureFileStorage.Infrastructure.deps.json
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\bin\Debug\net8.0\SecureFileStorage.Infrastructure.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\bin\Debug\net8.0\SecureFileStorage.Infrastructure.pdb
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\bin\Debug\net8.0\SecureFileStorage.Core.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\bin\Debug\net8.0\SecureFileStorage.Core.pdb
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.AssemblyInfo.cs
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFi.C02176E7.Up2Date
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\refint\SecureFileStorage.Infrastructure.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.pdb
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\ref\SecureFileStorage.Infrastructure.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\bin\Debug\net8.0\SecureFileStorage.Infrastructure.runtimeconfig.json
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.genruntimeconfig.cache

@@ -1,0 +1,38 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @* Content to display when a user is not authorized to view the page *@
+                    @* Check if the user is not authenticated (i.e., not logged in) *@
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <RedirectToLogin /> @* Redirect component for unauthenticated users *@
+                    }
+                    else
+                    {
+                        @* Content to display if authenticated but lacks specific roles/policies *@
+                        <PageTitle>Access Denied</PageTitle>
+                        <LayoutView Layout="@typeof(MainLayout)">
+                            <div class="alert alert-warning m-4" role="alert">
+                                <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Access Denied!</h4>
+                                <p>You do not have permission to view this page. If you believe this is an error, please contact support.</p>
+                                <hr>
+                                <p class="mb-0">Please try navigating to a different page or log out and log back in.</p>
+                            </div>
+                        </LayoutView>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

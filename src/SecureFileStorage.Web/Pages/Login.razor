@@ -1,0 +1,102 @@
+@page "/login"
+@using SecureFileStorage.Web.Services
+@inject IAuthService AuthService
+@inject NavigationManager NavManager
+@inject IJSRuntime JS
+
+<PageTitle>Login - Secure File Storage</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+    <div class="card p-4 shadow" style="max-width: 400px; width: 100%;">
+        <h4 class="card-title text-center mb-4">
+            <i class="fas fa-lock me-2 text-primary"></i>Login
+        </h4>
+        <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label for="username" class="form-label">Username:</label>
+                <InputText id="username" class="form-control" @bind-Value="loginModel.Username" />
+                <ValidationMessage For="@(() => loginModel.Username)" />
+            </div>
+
+            <div class="mb-4">
+                <label for="password" class="form-label">Password:</label>
+                <InputText id="password" type="password" class="form-control" @bind-Value="loginModel.Password" />
+                <ValidationMessage For="@(() => loginModel.Password)" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mb-3" role="alert">
+                    @errorMessage
+                </div>
+            }
+
+            <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                }
+                Login
+            </button>
+        </EditForm>
+        <p class="text-center mt-3">
+            Don't have an account? <a href="/register">Register here</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new LoginRequest();
+    private bool isLoading;
+    private string errorMessage = string.Empty;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    public class LoginRequest
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var loginResponse = await AuthService.LoginAsync(loginModel.Username, loginModel.Password);
+
+            if (loginResponse != null)
+            {
+                if (!string.IsNullOrEmpty(ReturnUrl) && Uri.IsWellFormedUriString(ReturnUrl, UriKind.Relative))
+                {
+                    NavManager.NavigateTo(ReturnUrl);
+                }
+                else
+                {
+                    NavManager.NavigateTo("/files");
+                }
+            }
+            else
+            {
+                errorMessage = "Login failed. Please check your username and password.";
+                await JS.InvokeVoidAsync("showToast", errorMessage, "danger");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+            await JS.InvokeVoidAsync("showToast", errorMessage, "danger");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

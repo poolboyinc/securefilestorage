@@ -1,0 +1,488 @@
+@page "/files"
+@page "/filemanager"
+@using SecureFileStorage.Web.Services
+@inject IFileService FileService
+@inject IAuthService AuthService
+@inject IJSRuntime JS
+
+<div class="file-manager-container">
+    <!-- Header Section -->
+    <div class="header-section">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-shield-alt text-primary me-2"></i>
+                    Secure File Storage
+                </h1>
+                <p class="page-subtitle">Enterprise-grade encrypted file management</p>
+            </div>
+            <div class="security-badges">
+                <span class="badge bg-success me-2">
+                    <i class="fas fa-lock me-1"></i>AES-256
+                </span>
+                <span class="badge bg-info me-2">
+                    <i class="fas fa-key me-1"></i>Multi-Layer
+                </span>
+                <span class="badge bg-warning">
+                    <i class="fas fa-virus me-1"></i>Virus Scan
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="upload-section">
+        <div class="upload-card">
+            <div class="upload-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>
+                    Upload Files
+                </h5>
+                <small class="text-muted">Drag & drop or click to select files (Max: 5GB)</small>
+            </div>
+            
+            <div class="upload-area @(isDragOver ? "drag-over" : "")" 
+                 @ondragover="@PreventDefault" 
+                 @ondragover:preventDefault="true"
+                 @ondrop="@HandleDrop" 
+                 @ondrop:preventDefault="true"
+                 @ondragenter="@(() => isDragOver = true)"
+                 @ondragleave="@(() => isDragOver = false)">
+                
+                <InputFile OnChange="@OnFileSelected" multiple class="file-input" id="fileInput" />
+                <label for="fileInput" class="upload-label">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt fa-3x"></i>
+                    </div>
+                    <div class="upload-text">
+                        <strong>Drop files here or click to browse</strong>
+                        <p class="mb-0">All files are automatically encrypted with AES-256</p>
+                    </div>
+                </label>
+            </div>
+            
+            @if (isUploading)
+            {
+                <div class="upload-progress mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="progress-text">
+                            <i class="fas fa-spinner fa-spin me-2"></i>
+                            Encrypting and uploading...
+                        </span>
+                        <span class="progress-percentage">@uploadProgress%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: @uploadProgress%" 
+                             aria-valuenow="@uploadProgress" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Files Section -->
+    <div class="files-section">
+        <div class="files-header">
+            <h5 class="mb-0">
+                <i class="fas fa-folder-open me-2"></i>
+                My Secure Files
+                @if (files?.Any() == true)
+                {
+                    <span class="badge bg-primary ms-2">@files.Count</span>
+                }
+            </h5>
+            <div class="view-controls">
+                <button class="btn btn-outline-secondary btn-sm me-2 @(viewMode == "grid" ? "active" : "")" 
+                        @onclick="@(() => viewMode = "grid")">
+                    <i class="fas fa-th"></i>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm @(viewMode == "list" ? "active" : "")"
+                        @onclick="@(() => viewMode = "list")">
+                    <i class="fas fa-list"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="files-content">
+            @if (files == null)
+            {
+                <div class="loading-state">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Loading your secure files...</p>
+                </div>
+            }
+            else if (!files.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-folder-open fa-4x"></i>
+                    </div>
+                    <h5>No files uploaded yet</h5>
+                    <p class="text-muted">Upload your first file to get started with secure storage</p>
+                </div>
+            }
+            else
+            {
+                @if (viewMode == "grid")
+                {
+                    <div class="files-grid">
+                        @foreach (var file in files)
+                        {
+                            <div class="file-card">
+                                <div class="file-icon">
+                                    <i class="@GetFileIcon(file.ContentType) fa-2x"></i>
+                                </div>
+                                <div class="file-info">
+                                    <h6 class="file-name" title="@file.OriginalFileName">
+                                        @TruncateFileName(file.OriginalFileName ?? "Unknown", 20)
+                                    </h6>
+                                    <p class="file-size">@FormatFileSize(file.FileSize)</p>
+                                    <small class="file-date">@file.UploadedAt.ToString("MMM dd, yyyy")</small>
+                                </div>
+                                <div class="file-actions">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" @onclick="() => DownloadFile(file.Id)">
+                                                <i class="fas fa-download me-2"></i>Download
+                                            </a></li>
+                                            <li><a class="dropdown-item" @onclick="() => ShareFile(file.Id)">
+                                                <i class="fas fa-share me-2"></i>Share
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" @onclick="() => DeleteFile(file.Id)">
+                                                <i class="fas fa-trash me-2"></i>Delete
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="security-indicator">
+                                    <i class="fas fa-shield-alt text-success" title="Encrypted with AES-256"></i>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="files-table">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <i class="fas fa-file me-2"></i>Name
+                                    </th>
+                                    <th>
+                                        <i class="fas fa-weight me-2"></i>Size
+                                    </th>
+                                    <th>
+                                        <i class="fas fa-calendar me-2"></i>Uploaded
+                                    </th>
+                                    <th>
+                                        <i class="fas fa-shield-alt me-2"></i>Security
+                                    </th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var file in files)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="@GetFileIcon(file.ContentType) me-3"></i>
+                                                <div>
+                                                    <div class="fw-bold">@(file.OriginalFileName ?? "Unknown")</div>
+                                                    <small class="text-muted">@(file.ContentType ?? "Unknown")</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-muted">@FormatFileSize(file.FileSize)</td>
+                                        <td class="text-muted">@file.UploadedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td>
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-lock me-1"></i>Encrypted
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary" 
+                                                        @onclick="() => DownloadFile(file.Id)" 
+                                                        title="Download">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-info" 
+                                                        @onclick="() => ShareFile(file.Id)"
+                                                        title="Share">
+                                                    <i class="fas fa-share"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        @onclick="() => DeleteFile(file.Id)"
+                                                        title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-share me-2"></i>Share Secure File
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Shared files remain encrypted. Recipients will need proper permissions to access.
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-envelope me-2"></i>Share with (email):
+                            </label>
+                            <input type="email" class="form-control" @bind="shareEmail" 
+                                   placeholder="user@example.com" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-key me-2"></i>Permissions:
+                            </label>
+                            <select class="form-select" @bind="sharePermission">
+                                <option value="Read">Read Only</option>
+                                <option value="ReadWrite">Read & Write</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-clock me-2"></i>Expires:
+                    </label>
+                    <input type="datetime-local" class="form-control" @bind="shareExpiry" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmShare">
+                    <i class="fas fa-share me-2"></i>Share File
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Fixed: Made files nullable
+    private List<FileDto>? files;
+    private bool isUploading;
+    private int uploadProgress;
+    private bool isDragOver;
+    private string viewMode = "grid";
+    
+    private Guid currentFileId;
+    private string shareEmail = "";
+    private string sharePermission = "Read";
+    private DateTime shareExpiry = DateTime.Now.AddDays(7);
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFiles();
+    }
+    
+    // Fixed: Added proper await
+    private async Task LoadFiles()
+    {
+        try
+        {
+            files = await FileService.GetUserFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Failed to load files: {ex.Message}");
+            files = new List<FileDto>(); // Ensure files is not null on error
+        }
+    }
+    
+    private void PreventDefault(DragEventArgs e)
+    {
+        // Prevent default drag behavior
+    }
+    
+    private async Task HandleDrop(DragEventArgs e)
+    {
+        isDragOver = false;
+        // Handle dropped files - this would require additional JS interop for file access
+    }
+    
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var maxFiles = 10;
+        var uploadTasks = new List<Task>();
+        
+        foreach (var file in e.GetMultipleFiles(maxFiles))
+        {
+            uploadTasks.Add(UploadSingleFile(file));
+        }
+        
+        await Task.WhenAll(uploadTasks);
+        await LoadFiles();
+    }
+    
+    private async Task UploadSingleFile(IBrowserFile file)
+    {
+        try
+        {
+            isUploading = true;
+            uploadProgress = 0;
+            StateHasChanged();
+            
+            using var stream = file.OpenReadStream(maxAllowedSize: 5_000_000_000); // 5GB
+            
+            await FileService.UploadFileAsync(stream, file.Name, file.ContentType, 
+                progress => 
+                {
+                    uploadProgress = progress;
+                    InvokeAsync(StateHasChanged);
+                });
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Upload failed for {file.Name}: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+            uploadProgress = 0;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task DownloadFile(Guid fileId)
+    {
+        try
+        {
+            var fileContent = await FileService.DownloadFileAsync(fileId);
+            var fileName = files?.FirstOrDefault(f => f.Id == fileId)?.OriginalFileName ?? "download";
+            
+            await JS.InvokeVoidAsync("downloadFile", fileName, fileContent);
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Download failed: {ex.Message}");
+        }
+    }
+    
+    private async Task ShareFile(Guid fileId)
+    {
+        currentFileId = fileId;
+        shareEmail = "";
+        sharePermission = "Read";
+        shareExpiry = DateTime.Now.AddDays(7);
+        await JS.InvokeVoidAsync("showModal", "shareModal");
+    }
+    
+    private async Task ConfirmShare()
+    {
+        try
+        {
+            await FileService.ShareFileAsync(currentFileId, shareEmail, sharePermission, shareExpiry);
+            await JS.InvokeVoidAsync("hideModal", "shareModal");
+            await JS.InvokeVoidAsync("alert", "File shared successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Share failed: {ex.Message}");
+        }
+    }
+    
+    private async Task DeleteFile(Guid fileId)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete this file? This action cannot be undone."))
+        {
+            try
+            {
+                await FileService.DeleteFileAsync(fileId);
+                await LoadFiles();
+                await JS.InvokeVoidAsync("alert", "File deleted successfully!");
+            }
+            catch (Exception ex)
+            {
+                await JS.InvokeVoidAsync("alert", $"Delete failed: {ex.Message}");
+            }
+        }
+    }
+    
+    private string FormatFileSize(long fileSize)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        int order = 0;
+        double size = fileSize;
+        
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+        
+        return $"{size:0.##} {sizes[order]}";
+    }
+    
+    private string GetFileIcon(string? contentType)
+    {
+        return contentType?.ToLower() switch
+        {
+            var ct when ct.Contains("image") => "fas fa-image text-success",
+            var ct when ct.Contains("video") => "fas fa-video text-danger", 
+            var ct when ct.Contains("audio") => "fas fa-music text-info",
+            var ct when ct.Contains("pdf") => "fas fa-file-pdf text-danger",
+            var ct when ct.Contains("word") => "fas fa-file-word text-primary",
+            var ct when ct.Contains("excel") => "fas fa-file-excel text-success",
+            var ct when ct.Contains("powerpoint") => "fas fa-file-powerpoint text-warning",
+            var ct when ct.Contains("zip") || ct.Contains("rar") => "fas fa-file-archive text-warning",
+            var ct when ct.Contains("text") => "fas fa-file-alt text-secondary",
+            _ => "fas fa-file text-muted"
+        };
+    }
+    
+    private string TruncateFileName(string fileName, int maxLength)
+    {
+        if (fileName.Length <= maxLength) return fileName;
+        
+        var extension = Path.GetExtension(fileName);
+        var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+        var truncated = nameWithoutExt.Substring(0, Math.Max(0, maxLength - extension.Length - 3)) + "...";
+        
+        return truncated + extension;
+    }
+}
