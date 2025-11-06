@@ -1103,3 +1103,4 @@ C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Web\obj\De
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Web\obj\Debug\net8.0\compressed\sk43qegebj.gz
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Web\obj\Debug\net8.0\compressed\42lmpans2p.gz
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Web\obj\Debug\net8.0\compressed\470hvdtuae.gz
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Web\obj\Debug\net8.0\SecureFileStorage.Web.sourcelink.json

@@ -1,0 +1,208 @@
+2025-10-05 19:50:31.786 +02:00 [INF] Executed DbCommand (92ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-10-05 19:50:31.896 +02:00 [INF] Executed DbCommand (26ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-10-05 19:50:32.296 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-10-05 19:50:32.746 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-10-05 19:50:32.748 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-10-05 19:50:32.766 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-10-05 19:50:32.768 +02:00 [INF] Database migration completed successfully
+2025-10-05 19:50:32.775 +02:00 [INF] Starting Secure File Storage API
+2025-10-05 19:50:32.794 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-10-05 19:50:32.886 +02:00 [INF] Now listening on: http://localhost:5243
+2025-10-05 19:50:32.889 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-10-05 19:50:32.890 +02:00 [INF] Hosting environment: Development
+2025-10-05 19:50:32.891 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-10-05 19:50:48.557 +02:00 [INF] Application is shutting down...
+2025-10-05 19:51:10.547 +02:00 [INF] Executed DbCommand (79ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-10-05 19:51:10.631 +02:00 [INF] Executed DbCommand (7ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-10-05 19:51:11.041 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-10-05 19:51:11.413 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-10-05 19:51:11.416 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-10-05 19:51:11.437 +02:00 [INF] No migrations were applied. The database is already up to date.
+2025-10-05 19:51:11.440 +02:00 [INF] Database migration completed successfully
+2025-10-05 19:51:11.449 +02:00 [INF] Starting Secure File Storage API
+2025-10-05 19:51:11.467 +02:00 [INF] User profile is available. Using 'C:\Users\Lenovo\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-10-05 19:51:11.539 +02:00 [INF] Now listening on: http://localhost:5243
+2025-10-05 19:51:11.542 +02:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-10-05 19:51:11.543 +02:00 [INF] Hosting environment: Development
+2025-10-05 19:51:11.544 +02:00 [INF] Content root path: C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API
+2025-10-05 19:51:12.432 +02:00 [INF] Request starting HTTP/1.1 GET http://localhost:5243/swagger/v1/swagger.json - null null
+2025-10-05 19:51:12.634 +02:00 [INF] Request finished HTTP/1.1 GET http://localhost:5243/swagger/v1/swagger.json - 200 null application/json;charset=utf-8 203.6376ms
+2025-10-05 19:52:27.324 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - null null
+2025-10-05 19:52:27.337 +02:00 [WRN] Failed to determine the https port for redirect.
+2025-10-05 19:52:27.341 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:27.351 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/auth/login - 204 null null 26.8231ms
+2025-10-05 19:52:27.358 +02:00 [INF] Request starting HTTP/1.1 POST http://localhost:5243/api/auth/login - application/json; charset=utf-8 57
+2025-10-05 19:52:27.377 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:27.570 +02:00 [INF] Failed to validate the token.
+Microsoft.IdentityModel.Tokens.SecurityTokenExpiredException: IDX10223: Lifetime validation failed. The token is expired. ValidTo (UTC): '04-Oct-25 16:11:33', Current time (UTC): '05-Oct-25 17:52:27'.
+   at Microsoft.IdentityModel.Tokens.Validators.ValidateLifetime(Nullable`1 notBefore, Nullable`1 expires, SecurityToken securityToken, TokenValidationParameters validationParameters)
+   at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ValidateTokenPayloadAsync(JsonWebToken jsonWebToken, TokenValidationParameters validationParameters, BaseConfiguration configuration)
+   at Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler.ValidateJWSAsync(JsonWebToken jsonWebToken, TokenValidationParameters validationParameters, BaseConfiguration configuration)
+2025-10-05 19:52:27.594 +02:00 [INF] Bearer was not authenticated. Failure message: IDX10223: Lifetime validation failed. The token is expired. ValidTo (UTC): '04-Oct-25 16:11:33', Current time (UTC): '05-Oct-25 17:52:27'.
+2025-10-05 19:52:27.616 +02:00 [INF] Request 190e6db7-cb50-49f0-9478-f06b61a035fa: POST /api/auth/login
+2025-10-05 19:52:27.620 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-10-05 19:52:27.665 +02:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(SecureFileStorage.Core.DTOs.LoginRequest) on controller SecureFileStorage.API.Controllers.AuthController (SecureFileStorage.API).
+2025-10-05 19:52:27.745 +02:00 [INF] Executing action method SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) - Validation state: "Valid"
+2025-10-05 19:52:28.518 +02:00 [INF] Executed DbCommand (47ms) [Parameters=[@__username_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", t0."UserId", t0."RoleId", t0."AssignedAt", t0."Id", t0."Description", t0."Name"
+FROM (
+    SELECT u."Id", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "Users" AS u
+    WHERE u."Username" = @__username_0
+    LIMIT 1
+) AS t
+LEFT JOIN (
+    SELECT u0."UserId", u0."RoleId", u0."AssignedAt", r."Id", r."Description", r."Name"
+    FROM "UserRoles" AS u0
+    INNER JOIN "Roles" AS r ON u0."RoleId" = r."Id"
+) AS t0 ON t."Id" = t0."UserId"
+ORDER BY t."Id", t0."UserId", t0."RoleId"
+2025-10-05 19:52:29.143 +02:00 [INF] Executed DbCommand (59ms) [Parameters=[@p14='?' (DbType = Guid), @p0='?' (DbType = Object), @p1='?' (DbType = DateTime), @p2='?', @p3='?' (DbType = Binary), @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?', @p7='?' (DbType = Int32), @p8='?' (DbType = DateTime), @p9='?', @p10='?' (DbType = Binary), @p11='?' (DbType = Binary), @p12='?' (DbType = Binary), @p13='?'], CommandType='"Text"', CommandTimeout='30']
+UPDATE "Users" SET "BackupCodes" = @p0, "CreatedAt" = @p1, "Email" = @p2, "EncryptedPrivateKey" = @p3, "IsActive" = @p4, "IsMfaEnabled" = @p5, "KeyDerivationAlgorithm" = @p6, "KeyDerivationIterations" = @p7, "LastLoginAt" = @p8, "MfaSecret" = @p9, "PasswordHash" = @p10, "PasswordSalt" = @p11, "PublicKey" = @p12, "Username" = @p13
+WHERE "Id" = @p14;
+2025-10-05 19:52:29.338 +02:00 [INF] Executed DbCommand (30ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?', @p4='?' (DbType = DateTime), @p5='?', @p6='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "UserAuditLogs" ("Id", "Details", "EventType", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
+2025-10-05 19:52:29.354 +02:00 [INF] Executed action method SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API), returned result Microsoft.AspNetCore.Mvc.OkObjectResult in 1595.595ms.
+2025-10-05 19:52:29.370 +02:00 [INF] Executing OkObjectResult, writing value of type 'SecureFileStorage.Core.DTOs.LoginResponse'.
+2025-10-05 19:52:29.407 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API) in 1730.4909ms
+2025-10-05 19:52:29.412 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.AuthController.Login (SecureFileStorage.API)'
+2025-10-05 19:52:29.414 +02:00 [INF] Response 190e6db7-cb50-49f0-9478-f06b61a035fa: 200
+2025-10-05 19:52:29.434 +02:00 [INF] Request finished HTTP/1.1 POST http://localhost:5243/api/auth/login - 200 null application/json; charset=utf-8 2075.819ms
+2025-10-05 19:52:29.581 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - null null
+2025-10-05 19:52:29.587 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:29.590 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - 204 null null 9.0356ms
+2025-10-05 19:52:29.607 +02:00 [INF] Request starting HTTP/1.1 GET http://localhost:5243/api/securefiles - null null
+2025-10-05 19:52:29.612 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:29.635 +02:00 [INF] Request 53e682ae-b2e3-4ae0-8ab8-a70a958eaafb: GET /api/securefiles
+2025-10-05 19:52:29.637 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-10-05 19:52:29.655 +02:00 [INF] Route matched with {action = "GetUserFiles", controller = "SecureFiles"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetUserFiles() on controller SecureFileStorage.API.Controllers.SecureFilesController (SecureFileStorage.API).
+2025-10-05 19:52:29.668 +02:00 [INF] Executing action method SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API) - Validation state: "Valid"
+2025-10-05 19:52:29.673 +02:00 [INF] User 71edeb10-4271-47e2-9b43-71cd805f4680 retrieving files
+2025-10-05 19:52:29.787 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."Id", s."ContentType", s."DeletedAt", s."EncryptedChachaKey", s."EncryptedFileKey", s."EncryptedMetadata", s."EncryptionAlgorithm", s."FileHash", s."FileName", s."FileSize", s."HashAlgorithm", s."IV", s."IsDeleted", s."KeyId", s."OriginalFileName", s."OwnerId", s."Salt", s."StoragePath", s."Tag", s."UploadedAt"
+FROM "SecureFiles" AS s
+WHERE s."OwnerId" = @__userId_0 AND NOT (s."IsDeleted")
+ORDER BY s."UploadedAt" DESC
+2025-10-05 19:52:29.852 +02:00 [INF] Executed action method SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API), returned result Microsoft.AspNetCore.Mvc.OkObjectResult in 181.8121ms.
+2025-10-05 19:52:29.858 +02:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[SecureFileStorage.Core.DTOs.FileDto, SecureFileStorage.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2025-10-05 19:52:29.904 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API) in 246.3851ms
+2025-10-05 19:52:29.907 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-10-05 19:52:29.909 +02:00 [INF] Response 53e682ae-b2e3-4ae0-8ab8-a70a958eaafb: 200
+2025-10-05 19:52:29.910 +02:00 [INF] Request finished HTTP/1.1 GET http://localhost:5243/api/securefiles - 200 null application/json; charset=utf-8 302.6382ms
+2025-10-05 19:52:40.740 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles/b862ce5b-654c-4b76-be33-131e86bc1396 - null null
+2025-10-05 19:52:40.744 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:40.745 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles/b862ce5b-654c-4b76-be33-131e86bc1396 - 204 null null 5.4041ms
+2025-10-05 19:52:40.750 +02:00 [INF] Request starting HTTP/1.1 DELETE http://localhost:5243/api/securefiles/b862ce5b-654c-4b76-be33-131e86bc1396 - null null
+2025-10-05 19:52:40.754 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:40.762 +02:00 [INF] Request d6258721-b0b0-4905-9d26-02da67dec00b: DELETE /api/securefiles/b862ce5b-654c-4b76-be33-131e86bc1396
+2025-10-05 19:52:40.763 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.DeleteFile (SecureFileStorage.API)'
+2025-10-05 19:52:40.771 +02:00 [INF] Route matched with {action = "DeleteFile", controller = "SecureFiles"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] DeleteFile(System.Guid) on controller SecureFileStorage.API.Controllers.SecureFilesController (SecureFileStorage.API).
+2025-10-05 19:52:40.780 +02:00 [INF] Executing action method SecureFileStorage.API.Controllers.SecureFilesController.DeleteFile (SecureFileStorage.API) - Validation state: "Valid"
+2025-10-05 19:52:40.826 +02:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2025-10-05 19:52:40.853 +02:00 [INF] Executed DbCommand (14ms) [Parameters=[@__id_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."ContentType", t."DeletedAt", t."EncryptedChachaKey", t."EncryptedFileKey", t."EncryptedMetadata", t."EncryptionAlgorithm", t."FileHash", t."FileName", t."FileSize", t."HashAlgorithm", t."IV", t."IsDeleted", t."KeyId", t."OriginalFileName", t."OwnerId", t."Salt", t."StoragePath", t."Tag", t."UploadedAt", t."Id0", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", f."Id", f."ExpiresAt", f."FileId", f."GrantedAt", f."GrantedBy", f."Permission", f."UserId", f0."Id", f0."Action", f0."Details", f0."FileId", f0."IpAddress", f0."Timestamp", f0."UserAgent", f0."UserId"
+FROM (
+    SELECT s."Id", s."ContentType", s."DeletedAt", s."EncryptedChachaKey", s."EncryptedFileKey", s."EncryptedMetadata", s."EncryptionAlgorithm", s."FileHash", s."FileName", s."FileSize", s."HashAlgorithm", s."IV", s."IsDeleted", s."KeyId", s."OriginalFileName", s."OwnerId", s."Salt", s."StoragePath", s."Tag", s."UploadedAt", u."Id" AS "Id0", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "SecureFiles" AS s
+    INNER JOIN "Users" AS u ON s."OwnerId" = u."Id"
+    WHERE s."Id" = @__id_0 AND NOT (s."IsDeleted")
+    LIMIT 1
+) AS t
+LEFT JOIN "FilePermissions" AS f ON t."Id" = f."FileId"
+LEFT JOIN "FileAuditLogs" AS f0 ON t."Id" = f0."FileId"
+ORDER BY t."Id", t."Id0", f."Id"
+2025-10-05 19:52:40.909 +02:00 [INF] Executed DbCommand (3ms) [Parameters=[@__id_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT t."Id", t."ContentType", t."DeletedAt", t."EncryptedChachaKey", t."EncryptedFileKey", t."EncryptedMetadata", t."EncryptionAlgorithm", t."FileHash", t."FileName", t."FileSize", t."HashAlgorithm", t."IV", t."IsDeleted", t."KeyId", t."OriginalFileName", t."OwnerId", t."Salt", t."StoragePath", t."Tag", t."UploadedAt", t."Id0", t."BackupCodes", t."CreatedAt", t."Email", t."EncryptedPrivateKey", t."IsActive", t."IsMfaEnabled", t."KeyDerivationAlgorithm", t."KeyDerivationIterations", t."LastLoginAt", t."MfaSecret", t."PasswordHash", t."PasswordSalt", t."PublicKey", t."Username", f."Id", f."ExpiresAt", f."FileId", f."GrantedAt", f."GrantedBy", f."Permission", f."UserId", f0."Id", f0."Action", f0."Details", f0."FileId", f0."IpAddress", f0."Timestamp", f0."UserAgent", f0."UserId"
+FROM (
+    SELECT s."Id", s."ContentType", s."DeletedAt", s."EncryptedChachaKey", s."EncryptedFileKey", s."EncryptedMetadata", s."EncryptionAlgorithm", s."FileHash", s."FileName", s."FileSize", s."HashAlgorithm", s."IV", s."IsDeleted", s."KeyId", s."OriginalFileName", s."OwnerId", s."Salt", s."StoragePath", s."Tag", s."UploadedAt", u."Id" AS "Id0", u."BackupCodes", u."CreatedAt", u."Email", u."EncryptedPrivateKey", u."IsActive", u."IsMfaEnabled", u."KeyDerivationAlgorithm", u."KeyDerivationIterations", u."LastLoginAt", u."MfaSecret", u."PasswordHash", u."PasswordSalt", u."PublicKey", u."Username"
+    FROM "SecureFiles" AS s
+    INNER JOIN "Users" AS u ON s."OwnerId" = u."Id"
+    WHERE s."Id" = @__id_0 AND NOT (s."IsDeleted")
+    LIMIT 1
+) AS t
+LEFT JOIN "FilePermissions" AS f ON t."Id" = f."FileId"
+LEFT JOIN "FileAuditLogs" AS f0 ON t."Id" = f0."FileId"
+ORDER BY t."Id", t."Id0", f."Id"
+2025-10-05 19:52:40.987 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p2='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?' (DbType = Boolean)], CommandType='"Text"', CommandTimeout='30']
+UPDATE "SecureFiles" SET "DeletedAt" = @p0, "IsDeleted" = @p1
+WHERE "Id" = @p2;
+2025-10-05 19:52:41.010 +02:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?', @p2='?', @p3='?' (DbType = Guid), @p4='?', @p5='?' (DbType = DateTime), @p6='?', @p7='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "FileAuditLogs" ("Id", "Action", "Details", "FileId", "IpAddress", "Timestamp", "UserAgent", "UserId")
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7);
+2025-10-05 19:52:41.017 +02:00 [INF] Executed action method SecureFileStorage.API.Controllers.SecureFilesController.DeleteFile (SecureFileStorage.API), returned result Microsoft.AspNetCore.Mvc.NoContentResult in 234.2187ms.
+2025-10-05 19:52:41.028 +02:00 [INF] Executing StatusCodeResult, setting HTTP status code 204
+2025-10-05 19:52:41.030 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.SecureFilesController.DeleteFile (SecureFileStorage.API) in 255.7967ms
+2025-10-05 19:52:41.032 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.DeleteFile (SecureFileStorage.API)'
+2025-10-05 19:52:41.034 +02:00 [INF] Response d6258721-b0b0-4905-9d26-02da67dec00b: 204
+2025-10-05 19:52:41.036 +02:00 [INF] Request finished HTTP/1.1 DELETE http://localhost:5243/api/securefiles/b862ce5b-654c-4b76-be33-131e86bc1396 - 204 null null 285.6108ms
+2025-10-05 19:52:41.046 +02:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - null null
+2025-10-05 19:52:41.050 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:41.052 +02:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5243/api/securefiles - 204 null null 6.4575ms
+2025-10-05 19:52:41.057 +02:00 [INF] Request starting HTTP/1.1 GET http://localhost:5243/api/securefiles - null null
+2025-10-05 19:52:41.061 +02:00 [INF] CORS policy execution successful.
+2025-10-05 19:52:41.067 +02:00 [INF] Request 5bc0b432-5975-4fa2-a4f5-786a950970ab: GET /api/securefiles
+2025-10-05 19:52:41.068 +02:00 [INF] Executing endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-10-05 19:52:41.070 +02:00 [INF] Route matched with {action = "GetUserFiles", controller = "SecureFiles"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetUserFiles() on controller SecureFileStorage.API.Controllers.SecureFilesController (SecureFileStorage.API).
+2025-10-05 19:52:41.086 +02:00 [INF] Executing action method SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API) - Validation state: "Valid"
+2025-10-05 19:52:41.088 +02:00 [INF] User 71edeb10-4271-47e2-9b43-71cd805f4680 retrieving files
+2025-10-05 19:52:41.093 +02:00 [INF] Executed DbCommand (1ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT s."Id", s."ContentType", s."DeletedAt", s."EncryptedChachaKey", s."EncryptedFileKey", s."EncryptedMetadata", s."EncryptionAlgorithm", s."FileHash", s."FileName", s."FileSize", s."HashAlgorithm", s."IV", s."IsDeleted", s."KeyId", s."OriginalFileName", s."OwnerId", s."Salt", s."StoragePath", s."Tag", s."UploadedAt"
+FROM "SecureFiles" AS s
+WHERE s."OwnerId" = @__userId_0 AND NOT (s."IsDeleted")
+ORDER BY s."UploadedAt" DESC
+2025-10-05 19:52:41.098 +02:00 [INF] Executed action method SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API), returned result Microsoft.AspNetCore.Mvc.OkObjectResult in 10.0281ms.
+2025-10-05 19:52:41.101 +02:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[SecureFileStorage.Core.DTOs.FileDto, SecureFileStorage.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2025-10-05 19:52:41.104 +02:00 [INF] Executed action SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API) in 31.0802ms
+2025-10-05 19:52:41.107 +02:00 [INF] Executed endpoint 'SecureFileStorage.API.Controllers.SecureFilesController.GetUserFiles (SecureFileStorage.API)'
+2025-10-05 19:52:41.109 +02:00 [INF] Response 5bc0b432-5975-4fa2-a4f5-786a950970ab: 200
+2025-10-05 19:52:41.110 +02:00 [INF] Request finished HTTP/1.1 GET http://localhost:5243/api/securefiles - 200 null application/json; charset=utf-8 53.1733ms
+2025-10-05 19:56:23.768 +02:00 [INF] Application is shutting down...

@@ -13,3 +13,4 @@ C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptograp
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\refint\SecureFileStorage.Cryptography.dll
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.pdb
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\ref\SecureFileStorage.Cryptography.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Cryptography\obj\Debug\net8.0\SecureFileStorage.Cryptography.sourcelink.json

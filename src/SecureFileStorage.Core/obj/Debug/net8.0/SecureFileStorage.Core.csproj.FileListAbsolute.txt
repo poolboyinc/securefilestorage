@@ -12,3 +12,4 @@ C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Core\obj\D
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Core\obj\Debug\net8.0\ref\SecureFileStorage.Core.dll
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Core\bin\Debug\net8.0\SecureFileStorage.Core.runtimeconfig.json
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Core\obj\Debug\net8.0\SecureFileStorage.Core.genruntimeconfig.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Core\obj\Debug\net8.0\SecureFileStorage.Core.sourcelink.json

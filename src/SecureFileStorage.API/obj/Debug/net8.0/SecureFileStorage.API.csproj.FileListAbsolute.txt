@@ -154,3 +154,4 @@ C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API\obj\De
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API\obj\Debug\net8.0\SecureFileStorage.API.pdb
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API\obj\Debug\net8.0\SecureFileStorage.API.genruntimeconfig.cache
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API\obj\Debug\net8.0\ref\SecureFileStorage.API.dll
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.API\obj\Debug\net8.0\SecureFileStorage.API.sourcelink.json

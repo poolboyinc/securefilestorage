@@ -1,0 +1,5393 @@
+===============================
+File: ./SecureFileStorage.API/Controllers/AuthController.cs
+===============================
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Core.Entities;
+using System.Security.Cryptography;
+using SecureFileStorage.Core.DTOs;
+using System.Threading.Tasks; 
+
+namespace SecureFileStorage.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController : ControllerBase
+{
+    private readonly IConfiguration _configuration;
+    private readonly IUserRepository _userRepository;
+    private readonly IAuditService _auditService;
+    private readonly ILogger<AuthController> _logger;
+
+    public AuthController(
+        IConfiguration configuration,
+        IUserRepository userRepository,
+        IAuditService auditService,
+        ILogger<AuthController> logger)
+    {
+        _configuration = configuration;
+        _userRepository = userRepository;
+        _auditService = auditService;
+        _logger = logger;
+    }
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+                return BadRequest("Username and password are required");
+
+            if (string.IsNullOrEmpty(request.Email))
+                return BadRequest("Email is required");
+
+            if (request.Password.Length < 8)
+                return BadRequest("Password must be at least 8 characters long");
+            
+            var existingUserByUsername = await _userRepository.GetByUsernameAsync(request.Username);
+            if (existingUserByUsername != null)
+                return BadRequest("Username already exists");
+
+            var existingUserByEmail = await _userRepository.GetByEmailAsync(request.Email);
+            if (existingUserByEmail != null)
+                return BadRequest("Email already exists");
+            
+            var salt = GenerateSalt();
+            var passwordHash = HashPassword(request.Password, salt);
+            
+            var (publicKey, privateKey) = GenerateKeyPair();
+            var encryptedPrivateKey = EncryptPrivateKey(privateKey, request.Password);
+            
+            var userId = Guid.NewGuid();
+            var newUser = new User
+            {
+                Id = userId,
+                Username = request.Username,
+                Email = request.Email,
+                PasswordHash = passwordHash,
+                PasswordSalt = salt,
+                PublicKey = publicKey,
+                EncryptedPrivateKey = encryptedPrivateKey,
+                KeyDerivationAlgorithm = "PBKDF2",
+                KeyDerivationIterations = 100000,
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true,
+                IsMfaEnabled = false,
+                BackupCodes = new List<string>()
+            };
+
+            await _userRepository.CreateAsync(newUser);
+
+
+            await _auditService.LogUserSecurityEventAsync(userId, "UserRegistered", $"User '{request.Username}' registered successfully.");
+            
+            var token = GenerateJwtToken(userId, request.Username, new[] { "User" });
+
+            return Ok(new RegisterResponse
+            {
+                UserId = userId,
+                Username = request.Username,
+                Email = request.Email,
+                Token = token,
+                Message = "User registered successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during registration");
+            return StatusCode(500, "An error occurred during registration");
+        }
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+                return BadRequest("Username and password are required");
+            
+            var user = await _userRepository.GetByUsernameAsync(request.Username);
+            if (user == null)
+                return Unauthorized("Invalid credentials");
+            
+            if (!VerifyPassword(request.Password, user.PasswordHash, user.PasswordSalt))
+            {
+
+                await _auditService.LogUserSecurityEventAsync(user.Id, "LoginFailed", $"Failed login attempt for username: '{request.Username}'. Invalid credentials.");
+                return Unauthorized("Invalid credentials");
+            }
+            
+            user.LastLoginAt = DateTime.UtcNow;
+            await _userRepository.UpdateAsync(user);
+            
+            var roles = user.Roles?.Select(ur => ur.Role.Name).ToArray() ?? new[] { "User" };
+            var token = GenerateJwtToken(user.Id, user.Username, roles);
+
+
+            await _auditService.LogUserSecurityEventAsync(user.Id, "LoginSuccess", $"User '{user.Username}' logged in successfully.");
+
+            return Ok(new LoginResponse
+            {
+                Token = token,
+                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                Username = user.Username
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login");
+            return StatusCode(500, "An error occurred during login");
+        }
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        try
+        {
+            return Ok(new { message = "Logged out successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during logout");
+            return StatusCode(500, "An error occurred during logout");
+        }
+    }
+
+    private byte[] GenerateSalt()
+    {
+        var salt = new byte[32];
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(salt);
+        }
+        return salt;
+    }
+
+    private byte[] HashPassword(string password, byte[] salt)
+    {
+        using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256);
+        return pbkdf2.GetBytes(32);
+    }
+
+    private bool VerifyPassword(string password, byte[] hash, byte[] salt)
+    {
+        var testHash = HashPassword(password, salt);
+        return testHash.SequenceEqual(hash);
+    }
+
+    private (byte[] publicKey, byte[] privateKey) GenerateKeyPair()
+    {
+        using var rsa = RSA.Create(2048);
+        var privateKey = rsa.ExportRSAPrivateKey();
+        var publicKey = rsa.ExportRSAPublicKey();
+        return (publicKey, privateKey);
+    }
+
+    private byte[] EncryptPrivateKey(byte[] privateKey, string password)
+    {
+        var salt = GenerateSalt(); 
+
+        using var pbkdf2 = new Rfc2898DeriveBytes(
+            Encoding.UTF8.GetBytes(password),
+            salt, 
+            10000,
+            HashAlgorithmName.SHA256);
+
+        var key = pbkdf2.GetBytes(32); 
+        var iv = pbkdf2.GetBytes(16);  
+
+        using var aes = Aes.Create();
+        aes.Key = key;
+        aes.IV = iv;
+
+        using var encryptor = aes.CreateEncryptor();
+        using var ms = new MemoryStream();
+
+        ms.Write(salt, 0, salt.Length);
+        ms.Write(iv, 0, iv.Length);
+
+        using var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
+
+        cs.Write(privateKey, 0, privateKey.Length);
+        cs.FlushFinalBlock();
+
+        return ms.ToArray();
+    }
+
+    private string GenerateJwtToken(Guid userId, string username, string[] roles)
+    {
+        var jwtKey = _configuration["Jwt:Key"];
+        if (string.IsNullOrEmpty(jwtKey))
+        {
+            _logger.LogError("JWT Key is not configured. Please add 'Jwt:Key' to your configuration.");
+            throw new InvalidOperationException("JWT Key is missing from configuration.");
+        }
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, userId.ToString()),
+            new(ClaimTypes.Name, username),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+        };
+
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["Jwt:Issuer"],
+            audience: _configuration["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(24),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.API/Controllers/SecureFilesController.cs
+===============================
+using SecureFileStorage.Core.DTOs;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Cryptography.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+
+namespace SecureFileStorage.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize] 
+public class SecureFilesController : ControllerBase
+{
+    private readonly IMultiLayerEncryptionService _encryptionService;
+    private readonly IFileService _fileService;
+    private readonly IAuditService _auditService;
+    private readonly IAntiVirusService _antivirusService;
+    private readonly ILogger<SecureFilesController> _logger;
+    private readonly IStorageService _storageService;
+    private readonly IPermissionService _permissionService;
+    private readonly ISharingService _sharingService;
+    private readonly IKeyManagementService _keyManagementService;
+    
+    public SecureFilesController(
+        IMultiLayerEncryptionService encryptionService,
+        IFileService fileService,
+        IAuditService auditService,
+        IAntiVirusService antivirusService,
+        ILogger<SecureFilesController> logger,
+        IStorageService storageService,
+        IPermissionService permissionService,
+        ISharingService sharingService,
+        IKeyManagementService keyManagementService)
+    {
+        _encryptionService = encryptionService;
+        _fileService = fileService;
+        _auditService = auditService;
+        _antivirusService = antivirusService;
+        _logger = logger;
+        _storageService = storageService;
+        _permissionService = permissionService;
+        _sharingService = sharingService;
+        _keyManagementService = keyManagementService;
+    }
+    
+    [HttpPost("upload")]
+    [RequestSizeLimit(100_000_000)] // 100MB limit
+    public async Task<IActionResult> UploadFile(IFormFile file)
+    {
+        try
+        {
+            var userId = GetUserId();
+            _logger.LogInformation($"User {userId} attempting to upload file: {file?.FileName}");
+            
+            if (file == null || file.Length == 0)
+                return BadRequest(new { error = "No file provided" });
+                
+            if (file.Length > 100_000_000)
+                return BadRequest(new { error = "File size exceeds 100MB limit" });
+            
+            using var scanStream = file.OpenReadStream();
+            var scanResult = await _antivirusService.ScanFileAsync(scanStream);
+            if (!scanResult.IsClean)
+            {
+                await _auditService.LogSecurityEventAsync(userId, "MalwareDetected", file.FileName);
+                return BadRequest(new { error = $"File contains malware: {scanResult.ThreatName}" });
+            }
+            
+            var storageFileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
+            
+            file.OpenReadStream().Position = 0;
+            
+            using var encryptStream = file.OpenReadStream();
+            var result = await _encryptionService.EncryptFileAsync(encryptStream, file.FileName, userId);
+            result.StorageFileName = storageFileName;
+            
+            var secureFile = new SecureFile
+            {
+                Id = Guid.NewGuid(),
+                FileName = storageFileName,
+                OriginalFileName = file.FileName,
+                FileSize = file.Length,
+                ContentType = file.ContentType ?? "application/octet-stream",
+                UploadedAt = DateTime.UtcNow,
+                OwnerId = userId,
+                EncryptionAlgorithm = result.Algorithm,
+                KeyId = result.KeyId,
+                IV = result.IV ?? new byte[0],
+                Salt = new byte[0],
+                Tag = result.Tag ?? new byte[0],
+                EncryptedMetadata = new byte[0],
+                FileHash = result.FileHash,
+                HashAlgorithm = "SHA-512",
+                EncryptedFileKey = result.EncryptedFileKey,
+                EncryptedChachaKey = result.EncryptedChachaKey,
+                StoragePath = storageFileName,
+                IsDeleted = false
+            };
+            
+            await _fileService.SaveFileMetadataAsync(secureFile);
+            await _storageService.SaveEncryptedFileAsync(result.EncryptedData, storageFileName);
+            
+            await _auditService.LogFileOperationAsync(userId, secureFile.Id, "Upload");
+            
+            return Ok(new
+            {
+                fileId = secureFile.Id,
+                fileName = secureFile.OriginalFileName,
+                uploadedAt = secureFile.UploadedAt,
+                size = secureFile.FileSize
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading file");
+            return StatusCode(500, new { error = "An error occurred while uploading the file", details = ex.Message });
+        }
+    }
+    
+    [HttpGet("{fileId}/download")]
+    public async Task<IActionResult> DownloadFile(Guid fileId)
+    {
+        try
+        {
+            var userId = GetUserId();
+            _logger.LogInformation($"User {userId} attempting to download file: {fileId}");
+            
+            if (!await _permissionService.CanAccessFileAsync(userId, fileId))
+            {
+                _logger.LogWarning($"User {userId} denied access to file {fileId}");
+                return Forbid("Access denied");
+            }
+                
+            var fileMetadata = await _fileService.GetFileMetadataAsync(fileId);
+            if (fileMetadata == null)
+            {
+                _logger.LogWarning($"File {fileId} not found");
+                return NotFound("File not found");
+            }
+                
+            var decryptedStream = await _encryptionService.DecryptFileAsync(fileId, userId);
+            await _auditService.LogFileOperationAsync(userId, fileId, "Download");
+            
+            return File(
+                decryptedStream, 
+                fileMetadata.ContentType ?? "application/octet-stream", 
+                fileMetadata.OriginalFileName
+            );
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error downloading file {fileId}");
+            return StatusCode(500, new { error = "An error occurred while downloading the file" });
+        }
+    }
+    
+    [HttpGet]
+    public async Task<IActionResult> GetUserFiles()
+    {
+        try
+        {
+            var userId = GetUserId();
+            _logger.LogInformation($"User {userId} retrieving files");
+            
+            var files = await _fileService.GetUserFilesAsync(userId);
+            return Ok(files);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user files");
+            return StatusCode(500, new { error = "An error occurred while retrieving files" });
+        }
+    }
+    
+    [HttpDelete("{fileId}")]
+    public async Task<IActionResult> DeleteFile(Guid fileId)
+    {
+        try
+        {
+            var userId = GetUserId();
+            
+            var file = await _fileService.GetFileMetadataAsync(fileId);
+            if (file == null)
+                return NotFound();
+                
+            if (file.OwnerId != userId)
+                return Forbid("Only file owner can delete");
+                
+            await _fileService.SecureDeleteFileAsync(fileId);
+            await _auditService.LogFileOperationAsync(userId, fileId, "Delete");
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error deleting file {fileId}");
+            return StatusCode(500, new { error = "An error occurred while deleting the file" });
+        }
+    }
+    
+    private Guid GetUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            _logger.LogError($"Invalid user ID claim: {userIdClaim}");
+            throw new InvalidOperationException("Invalid user ID");
+        }
+            
+        return userId;
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.API/Controllers/TestController.cs
+===============================
+using Microsoft.AspNetCore.Mvc;
+
+namespace SecureFileStorage.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class TestController : ControllerBase
+{
+    private readonly ILogger<TestController> _logger;
+
+    public TestController(ILogger<TestController> logger)
+    {
+        _logger = logger;
+    }
+
+    [HttpGet("ping")]
+    public IActionResult Ping()
+    {
+        _logger.LogInformation("Ping endpoint called");
+        return Ok(new 
+        { 
+            message = "API is running", 
+            timestamp = DateTime.UtcNow,
+            version = "1.0.0"
+        });
+    }
+    
+    [HttpGet("health")]
+    public IActionResult Health()
+    {
+        return Ok(new
+        {
+            status = "Healthy",
+            timestamp = DateTime.UtcNow,
+            services = new
+            {
+                api = "Running",
+                database = "Connected", 
+                storage = "Available"
+            }
+        });
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.API/Middleware/AuditMiddleware.cs
+===============================
+namespace SecureFileStorage.API.Middleware;
+
+public class AuditMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<AuditMiddleware> _logger;
+
+    public AuditMiddleware(RequestDelegate next, ILogger<AuditMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var requestId = Guid.NewGuid().ToString();
+        context.Items["RequestId"] = requestId;
+
+        _logger.LogInformation($"Request {requestId}: {context.Request.Method} {context.Request.Path}");
+        
+        await _next(context);
+        
+        _logger.LogInformation($"Response {requestId}: {context.Response.StatusCode}");
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.API/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs
+===============================
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+
+
+
+===============================
+File: ./SecureFileStorage.API/obj/Debug/net8.0/SecureFileStorage.API.AssemblyInfo.cs
+===============================
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("SecureFileStorage.API")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0813f41632862f69811a17b8c519f83ea45f5d37")]
+[assembly: System.Reflection.AssemblyProductAttribute("SecureFileStorage.API")]
+[assembly: System.Reflection.AssemblyTitleAttribute("SecureFileStorage.API")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+
+
+
+===============================
+File: ./SecureFileStorage.API/obj/Debug/net8.0/SecureFileStorage.API.GlobalUsings.g.cs
+===============================
+// <auto-generated/>
+global using global::Microsoft.AspNetCore.Builder;
+global using global::Microsoft.AspNetCore.Hosting;
+global using global::Microsoft.AspNetCore.Http;
+global using global::Microsoft.AspNetCore.Routing;
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Hosting;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Net.Http.Json;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+
+
+
+===============================
+File: ./SecureFileStorage.API/obj/Debug/net8.0/SecureFileStorage.API.MvcApplicationPartsAssemblyInfo.cs
+===============================
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Microsoft.AspNetCore.OpenApi")]
+[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPartAttribute("Swashbuckle.AspNetCore.SwaggerGen")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+
+
+
+===============================
+File: ./SecureFileStorage.API/Program.cs
+===============================
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using SecureFileStorage.API.Middleware;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Core.Options;
+using SecureFileStorage.Cryptography.Services;
+using SecureFileStorage.Infrastructure.Data;
+using SecureFileStorage.Infrastructure.Repositories;
+using SecureFileStorage.Infrastructure.Services;
+using Serilog;
+using System.Threading.RateLimiting;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog (simplified - no Elasticsearch for now)
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File("logs/secure-storage-.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+// Database configuration
+builder.Services.AddDbContext<SecureStorageDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Redis cache configuration
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "SecureStorage";
+});
+
+// JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? 
+                    throw new InvalidOperationException("JWT Key not configured")))
+        };
+    });
+
+// Authorization policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireMfa", policy =>
+        policy.RequireClaim("mfa", "true"));
+        
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireRole("Admin"));
+});
+
+// Rate limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.Identity?.Name ?? httpContext.Request.Headers.Host.ToString(),
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+    
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = 429;
+        await context.HttpContext.Response.WriteAsync("Too many requests. Please try again later.", cancellationToken: token);
+    };
+});
+
+// Register services
+builder.Services.AddScoped<IMultiLayerEncryptionService, MultiLayerEncryptionService>();
+builder.Services.AddScoped<IKeyManagementService, KeyManagementService>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IStorageService, StorageService>();
+builder.Services.AddScoped<ISharingService, SharingService>();
+builder.Services.AddScoped<IAntiVirusService, AntivirusService>();
+builder.Services.AddScoped<IHsmService, HsmService>();
+
+// Register repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IFileRepository, FileRepository>();
+builder.Services.AddScoped<IKeyRepository, KeyRepository>();
+
+// HTTP Context Accessor
+builder.Services.AddHttpContextAccessor();
+
+// Configure options
+builder.Services.Configure<KeyManagementOptions>(
+    builder.Configuration.GetSection("KeyManagement"));
+
+// Add health checks (simplified - no EF health check for now)
+builder.Services.AddHealthChecks();
+
+// Configure API
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Secure File Storage API", 
+        Version = "v1",
+        Description = "Multi-layer encrypted file storage system"
+    });
+    
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("SecurePolicy", policy =>
+    {
+        policy.WithOrigins(
+                "https://localhost:7001",
+                "https://localhost:5001", 
+                "http://localhost:5000",
+                "http://localhost:5267",
+                "http://localhost:3000"
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials()
+            .SetIsOriginAllowed(origin => true); 
+    });
+});
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    context.Response.Headers["Content-Security-Policy"] = 
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';";
+    context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    
+    await next();
+});
+
+app.UseHttpsRedirection();
+app.UseCors("SecurePolicy");
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseRateLimiter();
+
+app.UseMiddleware<AuditMiddleware>();
+
+app.MapControllers();
+app.MapHealthChecks("/health");
+
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<SecureStorageDbContext>();
+        await dbContext.Database.MigrateAsync();
+        Log.Information("Database migration completed successfully");
+    }
+    catch (Exception ex)
+    {
+        Log.Fatal(ex, "Database migration failed");
+        throw;
+    }
+}
+
+try
+{
+    Log.Information("Starting Secure File Storage API");
+    await app.RunAsync();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/DTOs/FileDto.cs
+===============================
+namespace SecureFileStorage.Core.DTOs;
+
+public class FileDto
+{
+    public Guid Id { get; set; }
+    public string OriginalFileName { get; set; }
+    public long FileSize { get; set; }
+    public string ContentType { get; set; }
+    public DateTime UploadedAt { get; set; }
+    public bool IsShared { get; set; }
+    public List<string> SharedWith { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/DTOs/LoginRequest.cs
+===============================
+namespace SecureFileStorage.Core.DTOs;
+
+public class LoginRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/DTOs/LoginResponse.cs
+===============================
+namespace SecureFileStorage.Core.DTOs;
+
+public class LoginResponse
+{
+    public string Token { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public string Username { get; set; } = string.Empty;
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/DTOs/RegisterRequest.cs
+===============================
+namespace SecureFileStorage.Core.DTOs;
+
+public class RegisterRequest
+{
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/DTOs/RegisterResponse.cs
+===============================
+namespace SecureFileStorage.Core.DTOs;
+
+public class RegisterResponse
+{
+    public Guid UserId { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/DTOs/ShareFileRequest.cs
+===============================
+namespace SecureFileStorage.Core.DTOs;
+
+public class ShareFileRequest
+{
+    public Guid TargetUserId { get; set; }
+    public string Permissions { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Entities/EncryptedKey.cs
+===============================
+namespace SecureFileStorage.Core.Entities;
+
+public class EncryptedKey
+{
+    public Guid Id { get; set; }
+    public string KeyId { get; set; }
+    public byte[] EncryptedKeyData { get; set; }
+    public string Algorithm { get; set; }
+    public KeyStatus Status { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? RotatedAt { get; set; }
+    public string? ReplacementKeyId { get; set; } 
+}
+
+public enum KeyStatus
+{
+    Active,
+    Rotated,
+    Revoked,
+    Expired
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Entities/FileAuditLog.cs
+===============================
+namespace SecureFileStorage.Core.Entities;
+
+public class FileAuditLog
+{
+    public Guid Id { get; set; }
+    public Guid FileId { get; set; }
+    public SecureFile File { get; set; }
+    public Guid UserId { get; set; }
+    public User User { get; set; }
+    public string Action { get; set; }
+    public string Details { get; set; }
+    public string IpAddress { get; set; }
+    public string UserAgent { get; set; }
+    public DateTime Timestamp { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Entities/FilePermission.cs
+===============================
+namespace SecureFileStorage.Core.Entities;
+
+public class FilePermission
+{
+    public Guid Id { get; set; }
+    public Guid FileId { get; set; }
+    public SecureFile File { get; set; }
+    public Guid UserId { get; set; }
+    public User User { get; set; }
+    public PermissionType Permission { get; set; }
+    public DateTime GrantedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public Guid GrantedBy { get; set; }
+}
+
+public enum PermissionType
+{
+    Read = 1,
+    Write = 2,
+    Delete = 4,
+    Share = 8,
+    Owner = 15 // All permissions
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Entities/SecureFile.cs
+===============================
+namespace SecureFileStorage.Core.Entities;
+using System;
+using System.Collections.Generic;
+
+public class SecureFile
+{
+    public Guid Id { get; set; }
+    public string FileName { get; set; }
+    public string OriginalFileName { get; set; }
+    public long FileSize { get; set; }
+    public string ContentType { get; set; }
+    public DateTime UploadedAt { get; set; }
+    public Guid OwnerId { get; set; }
+    public User Owner { get; set; }
+        
+    public string EncryptionAlgorithm { get; set; }
+    public string KeyId { get; set; }
+    public byte[] IV { get; set; }
+    public byte[] Salt { get; set; }
+    public byte[] Tag { get; set; }
+    public byte[] EncryptedMetadata { get; set; }
+    public byte[] EncryptedFileKey { get; set; } 
+    public byte[] EncryptedChachaKey { get; set; } 
+    
+    public string StoragePath { get; set; }
+        
+    // Integrity
+    public byte[] FileHash { get; set; }
+    public string HashAlgorithm { get; set; }
+        
+    // Access control
+    public List<FilePermission> Permissions { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+        
+    // Audit
+    public List<FileAuditLog> AuditLogs { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Entities/User.cs
+===============================
+namespace SecureFileStorage.Core.Entities;
+
+public class User
+{
+    public Guid Id { get; set; }
+    public string Username { get; set; }
+    public string Email { get; set; }
+    public byte[] PasswordHash { get; set; }
+    public byte[] PasswordSalt { get; set; }
+    public bool IsMfaEnabled { get; set; }
+    public string? MfaSecret { get; set; } 
+    public List<string>? BackupCodes { get; set; } 
+    public byte[] PublicKey { get; set; }
+    public byte[] EncryptedPrivateKey { get; set; }
+    public string KeyDerivationAlgorithm { get; set; }
+    public int KeyDerivationIterations { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    public bool IsActive { get; set; }
+    
+    public ICollection<SecureFile> Files { get; set; } = new List<SecureFile>();
+    public ICollection<UserRole> Roles { get; set; } = new List<UserRole>();
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Entities/UserAuditLog.cs
+===============================
+namespace SecureFileStorage.Core.Entities;
+
+public class UserAuditLog
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; } 
+    public string EventType { get; set; } 
+    public string Details { get; set; } 
+    public string IpAddress { get; set; }
+    public string UserAgent { get; set; }
+    public DateTime Timestamp { get; set; }
+    
+    public User User { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Entities/UserRole.cs
+===============================
+namespace SecureFileStorage.Core.Entities;
+
+public class UserRole
+{
+    public Guid UserId { get; set; }
+    public User User { get; set; }
+    public Guid RoleId { get; set; }
+    public Role Role { get; set; }
+    public DateTime AssignedAt { get; set; }
+}
+
+public class Role
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public List<UserRole> UserRoles { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IAntiVirusService.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System.IO;
+using System.Threading.Tasks;
+
+public interface IAntiVirusService
+{
+    Task<ScanResult> ScanFileAsync(Stream fileStream);
+}
+
+public class ScanResult
+{
+    public bool IsClean { get; set; }
+    public string ThreatName { get; set; }
+    public string Details { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IAuditService.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System;
+using System.Threading.Tasks;
+
+public interface IAuditService
+{
+    Task LogFileOperationAsync(Guid userId, Guid fileId, string operation);
+    Task LogFileAccessAsync(Guid userId, Guid fileId, string operation);
+    Task LogSecurityEventAsync(Guid userId, string eventType, string details);
+
+    Task LogUserSecurityEventAsync(Guid userId, string eventType, string details);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IFileRepository.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.Entities;
+
+public interface IFileRepository
+{
+    Task<SecureFile> GetByIdAsync(Guid id);
+    Task<List<SecureFile>> GetUserFilesAsync(Guid userId);
+    Task<List<SecureFile>> GetFilesByKeyIdAsync(string keyId);
+    Task<SecureFile> CreateAsync(SecureFile file);
+    Task<SecureFile> UpdateAsync(SecureFile file);
+    Task<bool> DeleteAsync(Guid id);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IFileService.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.DTOs;
+using SecureFileStorage.Core.Entities;
+
+public interface IFileService
+{
+    Task<SecureFile> SaveFileMetadataAsync(SecureFile file);
+    Task<SecureFile> GetFileMetadataAsync(Guid fileId);
+    Task<List<FileDto>> GetUserFilesAsync(Guid userId);
+    Task SecureDeleteFileAsync(Guid fileId);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IHsmService.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System.Threading.Tasks;
+
+public interface IHsmService
+{
+    Task<byte[]> WrapKeyAsync(byte[] key, byte[] publicKey);
+    Task<byte[]> UnwrapKeyAsync(byte[] wrappedKey, byte[] privateKey);
+    Task<byte[]> GenerateKeyAsync(int keySize);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IKeyRepository.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.Entities;
+
+public interface IKeyRepository
+{
+    Task<EncryptedKey> GetByIdAsync(string keyId);
+    Task<List<EncryptedKey>> GetKeysForRotationAsync(int days);
+    Task<EncryptedKey> CreateAsync(EncryptedKey key);
+    Task<EncryptedKey> UpdateAsync(EncryptedKey key);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IPermissionService.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System;
+using System.Threading.Tasks;
+
+public interface IPermissionService
+{
+    Task<bool> CanAccessFileAsync(Guid userId, Guid fileId);
+    Task<bool> CanDeleteFileAsync(Guid userId, Guid fileId);
+    Task<bool> CanShareFileAsync(Guid userId, Guid fileId);
+    Task GrantPermissionAsync(Guid fileId, Guid userId, string permission, DateTime? expiresAt);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/ISharingService.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System;
+using System.Threading.Tasks;
+
+public interface ISharingService
+{
+    Task<string> CreateShareLinkAsync(Guid fileId, Guid targetUserId, string permissions, DateTime? expiresAt);
+    Task<bool> ValidateShareTokenAsync(string token);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IStorageService.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System.IO;
+using System.Threading.Tasks;
+
+public interface IStorageService
+{
+    Task<string> SaveEncryptedFileAsync(byte[] data, string fileName);
+    Task<byte[]> ReadFileAsync(string path);
+    Task<bool> DeleteFileAsync(string path);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Interfaces/IUserRepository.cs
+===============================
+namespace SecureFileStorage.Core.Interfaces;
+using System;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.Entities;
+
+public interface IUserRepository
+{
+    Task<User> GetByIdAsync(Guid id);
+    Task<User> GetByUsernameAsync(string username);
+    Task<User> GetByEmailAsync(string email);
+    Task<User> CreateAsync(User user);
+    Task<User> UpdateAsync(User user);
+    Task<bool> DeleteAsync(Guid id);
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Models/EncryptionResult.cs
+===============================
+namespace SecureFileStorage.Core.Models;
+
+public class EncryptionResult
+{
+    public byte[] EncryptedData { get; set; }
+    public byte[] EncryptedFileKey { get; set; }
+    public byte[] EncryptedChachaKey { get; set; }
+    public byte[] IV { get; set; }
+    public byte[] Tag { get; set; }
+    public byte[] FileHash { get; set; }
+    public string Algorithm { get; set; }
+    public string KeyId { get; set; }
+    public string StorageFileName { get; set; }
+}
+
+
+===============================
+File: ./SecureFileStorage.Core/Models/ScanResult.cs
+===============================
+namespace SecureFileStorage.Core.Models;
+
+public class ScanResult
+{
+    public bool IsClean { get; set; }
+    public string ThreatName { get; set; }
+    public string Details { get; set; }
+}
+
+
+
+
+===============================
+File: ./SecureFileStorage.Core/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs
+===============================
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+
+
+
+===============================
+File: ./SecureFileStorage.Core/obj/Debug/net8.0/SecureFileStorage.Core.AssemblyInfo.cs
+===============================
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("SecureFileStorage.Core")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0813f41632862f69811a17b8c519f83ea45f5d37")]
+[assembly: System.Reflection.AssemblyProductAttribute("SecureFileStorage.Core")]
+[assembly: System.Reflection.AssemblyTitleAttribute("SecureFileStorage.Core")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+
+
+
+===============================
+File: ./SecureFileStorage.Core/obj/Debug/net8.0/SecureFileStorage.Core.GlobalUsings.g.cs
+===============================
+// <auto-generated/>
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+
+
+
+===============================
+File: ./SecureFileStorage.Core/Options/KeyManagementOptions.cs
+===============================
+namespace SecureFileStorage.Core.Options;
+
+public class KeyManagementOptions
+{
+    public bool UseHsm { get; set; }
+    public int KeyRotationDays { get; set; } = 90;
+    public string HsmConnectionString { get; set; }
+    public int KeyDerivationIterations { get; set; } = 100000;
+}
+
+
+===============================
+File: ./SecureFileStorage.Cryptography/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs
+===============================
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+
+
+
+===============================
+File: ./SecureFileStorage.Cryptography/obj/Debug/net8.0/SecureFileStorage.Cryptography.AssemblyInfo.cs
+===============================
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("SecureFileStorage.Cryptography")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0813f41632862f69811a17b8c519f83ea45f5d37")]
+[assembly: System.Reflection.AssemblyProductAttribute("SecureFileStorage.Cryptography")]
+[assembly: System.Reflection.AssemblyTitleAttribute("SecureFileStorage.Cryptography")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+
+
+
+===============================
+File: ./SecureFileStorage.Cryptography/obj/Debug/net8.0/SecureFileStorage.Cryptography.GlobalUsings.g.cs
+===============================
+// <auto-generated/>
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+
+
+
+===============================
+File: ./SecureFileStorage.Cryptography/Services/KeyManagementService.cs
+===============================
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Core.Options;
+
+namespace SecureFileStorage.Cryptography.Services;
+using System;
+using System.Security.Cryptography;
+using Sodium;
+
+public interface IKeyManagementService
+{
+    Task<byte[]> EncryptKeyAsync(byte[] key, Guid userId);
+    Task<byte[]> DecryptKeyAsync(byte[] encryptedKey, Guid userId);
+    Task RotateKeysAsync();
+    Task<string> GenerateKeyIdAsync();
+    Task ShareFileKeyAsync(Guid fileId, Guid fromUserId, Guid toUserId);
+}
+
+public class KeyManagementService : IKeyManagementService
+{
+    private readonly IUserRepository _userRepository;
+    private readonly IKeyRepository _keyRepository;
+    private readonly IHsmService _hsmService;
+    private readonly KeyManagementOptions _options;
+    private readonly ILogger<KeyManagementService> _logger;
+    private readonly IFileRepository _fileRepository;
+    
+    public KeyManagementService(
+        IUserRepository userRepository,
+        IKeyRepository keyRepository,
+        IHsmService hsmService,
+        IOptions<KeyManagementOptions> options,
+        ILogger<KeyManagementService> logger,
+        IFileRepository fileRepository)
+    {
+        _userRepository = userRepository;
+        _keyRepository = keyRepository;
+        _hsmService = hsmService;
+        _options = options.Value;
+        _logger = logger;
+        _fileRepository = fileRepository;
+    }
+    
+    public async Task<byte[]> EncryptKeyAsync(byte[] key, Guid userId)
+    {
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new InvalidOperationException("User not found");
+            
+            using var rsa = RSA.Create();
+            rsa.ImportRSAPublicKey(user.PublicKey, out _);
+            
+            return rsa.Encrypt(key, RSAEncryptionPadding.OaepSHA256);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to encrypt key for user {userId}");
+            throw;
+        }
+    }
+    
+    public async Task<byte[]> DecryptKeyAsync(byte[] encryptedKey, Guid userId)
+    {
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+                throw new InvalidOperationException("User not found");
+            
+            var privateKey = DecryptUserPrivateKey(user);
+            
+            using var rsa = RSA.Create();
+            rsa.ImportRSAPrivateKey(privateKey, out _);
+            
+            return rsa.Decrypt(encryptedKey, RSAEncryptionPadding.OaepSHA256);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to decrypt key for user {userId}");
+            throw;
+        }
+    }
+    
+    public async Task<string> GenerateKeyIdAsync()
+    {
+        return Guid.NewGuid().ToString("N").Substring(0, 16);
+    }
+    
+    public async Task ShareFileKeyAsync(Guid fileId, Guid fromUserId, Guid toUserId)
+    {
+        try
+        {
+            var file = await _fileRepository.GetByIdAsync(fileId);
+            if (file == null)
+                throw new InvalidOperationException("File not found");
+            
+            var fileKey = await DecryptKeyAsync(file.EncryptedFileKey, fromUserId);
+            var chachaKey = await DecryptKeyAsync(file.EncryptedChachaKey, fromUserId);
+            
+            var newEncryptedFileKey = await EncryptKeyAsync(fileKey, toUserId);
+            var newEncryptedChachaKey = await EncryptKeyAsync(chachaKey, toUserId);
+            
+            _logger.LogInformation($"File keys re-encrypted for sharing from user {fromUserId} to {toUserId}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to share file keys for file {fileId}");
+            throw;
+        }
+    }
+    
+    public async Task RotateKeysAsync()
+    {
+        _logger.LogInformation("Key rotation not implemented for this version");
+        await Task.CompletedTask;
+    }
+    
+    private byte[] DecryptUserPrivateKey(User user)
+    {
+        using var pbkdf2 = new Rfc2898DeriveBytes(
+            user.PasswordHash, 
+            user.PasswordSalt, 
+            10000,
+            HashAlgorithmName.SHA256);
+        
+        var key = pbkdf2.GetBytes(32);
+        var iv = pbkdf2.GetBytes(16);
+        
+        using var aes = Aes.Create();
+        aes.Key = key;
+        aes.IV = iv;
+        
+        using var decryptor = aes.CreateDecryptor();
+        using var ms = new MemoryStream(user.EncryptedPrivateKey);
+        using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
+        
+        var decrypted = new byte[user.EncryptedPrivateKey.Length];
+        var bytesRead = cs.Read(decrypted, 0, decrypted.Length);
+        
+        var result = new byte[bytesRead];
+        Array.Copy(decrypted, result, bytesRead);
+        return result;
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Cryptography/Services/MultiLayerEncryptionService.cs
+===============================
+using Microsoft.Extensions.Logging;
+
+namespace SecureFileStorage.Cryptography.Services;
+using System;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
+using Sodium;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Core.Models;
+
+public interface IMultiLayerEncryptionService
+{
+    Task<EncryptionResult> EncryptFileAsync(Stream inputStream, string fileName, Guid userId);
+    Task<Stream> DecryptFileAsync(Guid fileId, Guid userId);
+    byte[] GenerateKey(int keySize = 32);
+    (byte[] publicKey, byte[] privateKey) GenerateKeyPair();
+}
+
+public class MultiLayerEncryptionService : IMultiLayerEncryptionService
+{
+    private readonly IKeyManagementService _keyManagement;
+    private readonly ILogger<MultiLayerEncryptionService> _logger;
+    private readonly IFileRepository _fileRepository;
+    private readonly IPermissionService _permissionService;
+    private readonly IStorageService _storageService;
+    private readonly IAuditService _auditService;
+    
+    public MultiLayerEncryptionService(
+        IKeyManagementService keyManagement,
+        ILogger<MultiLayerEncryptionService> logger,
+        IFileRepository fileRepository,
+        IPermissionService permissionService,
+        IStorageService storageService,
+        IAuditService auditService)
+    {
+        _keyManagement = keyManagement;
+        _logger = logger;
+        _fileRepository = fileRepository;
+        _permissionService = permissionService;
+        _storageService = storageService;
+        _auditService = auditService;
+    }
+    
+    public async Task<EncryptionResult> EncryptFileAsync(Stream inputStream, string fileName, Guid userId)
+    {
+        try
+        {
+            _logger.LogInformation($"Starting encryption for file {fileName}");
+            
+            var fileKey = GenerateKey(32); 
+            var chachaKey = GenerateKey(32); 
+            var keyId = await _keyManagement.GenerateKeyIdAsync();
+            
+            using var ms = new MemoryStream();
+            await inputStream.CopyToAsync(ms);
+            var inputData = ms.ToArray();
+            
+            byte[] aesEncrypted;
+            byte[] aesIv;
+            using (var aes = Aes.Create())
+            {
+                aes.Key = fileKey;
+                aes.GenerateIV();
+                aesIv = aes.IV;
+                
+                using var encryptor = aes.CreateEncryptor();
+                aesEncrypted = encryptor.TransformFinalBlock(inputData, 0, inputData.Length);
+            }
+            
+            var finalEncrypted = new byte[aesEncrypted.Length];
+            for (int i = 0; i < aesEncrypted.Length; i++)
+            {
+                finalEncrypted[i] = (byte)(aesEncrypted[i] ^ chachaKey[i % chachaKey.Length]);
+            }
+            
+            var encryptedFileKey = await _keyManagement.EncryptKeyAsync(fileKey, userId);
+            var encryptedChachaKey = await _keyManagement.EncryptKeyAsync(chachaKey, userId);
+            
+            var fileHash = ComputeHash(finalEncrypted);
+            
+            return new EncryptionResult
+            {
+                EncryptedData = finalEncrypted,
+                EncryptedFileKey = encryptedFileKey,
+                EncryptedChachaKey = encryptedChachaKey,
+                IV = aesIv,
+                Tag = new byte[0], 
+                FileHash = fileHash,
+                Algorithm = "AES-256-CBC+XOR",
+                KeyId = keyId
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error encrypting file");
+            throw new CryptographicException("File encryption failed", ex);
+        }
+    }
+    
+    public async Task<Stream> DecryptFileAsync(Guid fileId, Guid userId)
+    {
+        try
+        {
+            _logger.LogInformation($"Starting decryption for file {fileId}");
+            
+            var file = await _fileRepository.GetByIdAsync(fileId);
+            
+            if (file == null || file.IsDeleted)
+                throw new FileNotFoundException("File not found");
+            
+            if (!await _permissionService.CanAccessFileAsync(userId, fileId))
+                throw new UnauthorizedAccessException("Access denied");
+            
+            var fileKey = await _keyManagement.DecryptKeyAsync(file.EncryptedFileKey, userId);
+            var chachaKey = await _keyManagement.DecryptKeyAsync(file.EncryptedChachaKey, userId);
+            
+            var encryptedData = await _storageService.ReadFileAsync(file.StoragePath);
+            
+            var computedHash = ComputeHash(encryptedData);
+            if (!computedHash.SequenceEqual(file.FileHash))
+            {
+                _logger.LogError("File integrity check failed");
+                throw new CryptographicException("File integrity check failed");
+            }
+            
+            var xorDecrypted = new byte[encryptedData.Length];
+            for (int i = 0; i < encryptedData.Length; i++)
+            {
+                xorDecrypted[i] = (byte)(encryptedData[i] ^ chachaKey[i % chachaKey.Length]);
+            }
+            
+            byte[] decryptedData;
+            using (var aes = Aes.Create())
+            {
+                aes.Key = fileKey;
+                aes.IV = file.IV;
+                
+                using var decryptor = aes.CreateDecryptor();
+                decryptedData = decryptor.TransformFinalBlock(xorDecrypted, 0, xorDecrypted.Length);
+            }
+            
+            await _auditService.LogFileAccessAsync(userId, fileId, "Decrypt");
+            
+            return new MemoryStream(decryptedData);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error decrypting file {fileId}");
+            throw;
+        }
+    }
+    
+    public byte[] GenerateKey(int keySize = 32)
+    {
+        using var rng = RandomNumberGenerator.Create();
+        var key = new byte[keySize];
+        rng.GetBytes(key);
+        return key;
+    }
+    
+    public (byte[] publicKey, byte[] privateKey) GenerateKeyPair()
+    {
+        using var rsa = RSA.Create(2048);
+        return (rsa.ExportRSAPublicKey(), rsa.ExportRSAPrivateKey());
+    }
+    
+    private byte[] ComputeHash(byte[] data)
+    {
+        using var sha512 = SHA512.Create();
+        return sha512.ComputeHash(data);
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Data/SecureStorageDbContext.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using SecureFileStorage.Core.Entities;
+
+public class SecureStorageDbContext : DbContext
+{
+    public SecureStorageDbContext(DbContextOptions<SecureStorageDbContext> options)
+        : base(options)
+    {
+    }
+
+    public DbSet<User> Users { get; set; }
+    public DbSet<SecureFile> SecureFiles { get; set; }
+    public DbSet<FilePermission> FilePermissions { get; set; }
+    public DbSet<FileAuditLog> FileAuditLogs { get; set; }
+    public DbSet<Role> Roles { get; set; }
+    public DbSet<UserRole> UserRoles { get; set; }
+    public DbSet<EncryptedKey> EncryptedKeys { get; set; }
+    public DbSet<UserAuditLog> UserAuditLogs { get; set; } 
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.Email).IsUnique();
+        });
+        
+        modelBuilder.Entity<SecureFile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FileName).IsRequired();
+            entity.HasOne(e => e.Owner)
+                .WithMany(u => u.Files)
+                .HasForeignKey(e => e.OwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        modelBuilder.Entity<FilePermission>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.File)
+                .WithMany(f => f.Permissions)
+                .HasForeignKey(e => e.FileId);
+            entity.HasOne(e => e.User)
+                .WithMany() 
+                .HasForeignKey(e => e.UserId);
+        });
+        
+        modelBuilder.Entity<FileAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.File)
+                .WithMany(f => f.AuditLogs)
+                .HasForeignKey(e => e.FileId)
+                .OnDelete(DeleteBehavior.Restrict); 
+            entity.HasOne(e => e.User)
+                .WithMany() 
+                .HasForeignKey(e => e.UserId);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(50);
+        });
+        
+        modelBuilder.Entity<UserAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Timestamp).IsRequired();
+            entity.HasOne(e => e.User)
+                .WithMany() 
+                .HasForeignKey(e => e.UserId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        
+        modelBuilder.Entity<UserRole>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.RoleId });
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Roles)
+                .HasForeignKey(e => e.UserId);
+            entity.HasOne(e => e.Role)
+                .WithMany(r => r.UserRoles)
+                .HasForeignKey(e => e.RoleId);
+        });
+        
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.Name).IsUnique();
+        });
+        
+        modelBuilder.Entity<EncryptedKey>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KeyId).IsRequired();
+            entity.HasIndex(e => e.KeyId).IsUnique();
+        });
+
+        base.OnModelCreating(modelBuilder);
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Migrations/20250617123117_InitialCreate.cs
+===============================
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace SecureFileStorage.Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class InitialCreate : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "EncryptedKeys",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    KeyId = table.Column<string>(type: "text", nullable: false),
+                    EncryptedKeyData = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Algorithm = table.Column<string>(type: "text", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    RotatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    ReplacementKeyId = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EncryptedKeys", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Roles",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Roles", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Users",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Username = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Email = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    PasswordHash = table.Column<byte[]>(type: "bytea", nullable: false),
+                    PasswordSalt = table.Column<byte[]>(type: "bytea", nullable: false),
+                    IsMfaEnabled = table.Column<bool>(type: "boolean", nullable: false),
+                    MfaSecret = table.Column<string>(type: "text", nullable: false),
+                    BackupCodes = table.Column<List<string>>(type: "text[]", nullable: false),
+                    PublicKey = table.Column<byte[]>(type: "bytea", nullable: false),
+                    EncryptedPrivateKey = table.Column<byte[]>(type: "bytea", nullable: false),
+                    KeyDerivationAlgorithm = table.Column<string>(type: "text", nullable: false),
+                    KeyDerivationIterations = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    LastLoginAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SecureFiles",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    FileName = table.Column<string>(type: "text", nullable: false),
+                    OriginalFileName = table.Column<string>(type: "text", nullable: false),
+                    FileSize = table.Column<long>(type: "bigint", nullable: false),
+                    ContentType = table.Column<string>(type: "text", nullable: false),
+                    UploadedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    OwnerId = table.Column<Guid>(type: "uuid", nullable: false),
+                    EncryptionAlgorithm = table.Column<string>(type: "text", nullable: false),
+                    KeyId = table.Column<string>(type: "text", nullable: false),
+                    IV = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Salt = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Tag = table.Column<byte[]>(type: "bytea", nullable: false),
+                    EncryptedMetadata = table.Column<byte[]>(type: "bytea", nullable: false),
+                    EncryptedFileKey = table.Column<byte[]>(type: "bytea", nullable: false),
+                    EncryptedChachaKey = table.Column<byte[]>(type: "bytea", nullable: false),
+                    StoragePath = table.Column<string>(type: "text", nullable: false),
+                    FileHash = table.Column<byte[]>(type: "bytea", nullable: false),
+                    HashAlgorithm = table.Column<string>(type: "text", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SecureFiles", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SecureFiles_Users_OwnerId",
+                        column: x => x.OwnerId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserRoles",
+                columns: table => new
+                {
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RoleId = table.Column<Guid>(type: "uuid", nullable: false),
+                    AssignedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserRoles", x => new { x.UserId, x.RoleId });
+                    table.ForeignKey(
+                        name: "FK_UserRoles_Roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "Roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserRoles_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "FileAuditLogs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    FileId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Action = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Details = table.Column<string>(type: "text", nullable: false),
+                    IpAddress = table.Column<string>(type: "text", nullable: false),
+                    UserAgent = table.Column<string>(type: "text", nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FileAuditLogs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_FileAuditLogs_SecureFiles_FileId",
+                        column: x => x.FileId,
+                        principalTable: "SecureFiles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_FileAuditLogs_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "FilePermissions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    FileId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Permission = table.Column<int>(type: "integer", nullable: false),
+                    GrantedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    GrantedBy = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FilePermissions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_FilePermissions_SecureFiles_FileId",
+                        column: x => x.FileId,
+                        principalTable: "SecureFiles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_FilePermissions_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EncryptedKeys_KeyId",
+                table: "EncryptedKeys",
+                column: "KeyId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FileAuditLogs_FileId",
+                table: "FileAuditLogs",
+                column: "FileId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FileAuditLogs_UserId",
+                table: "FileAuditLogs",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FilePermissions_FileId",
+                table: "FilePermissions",
+                column: "FileId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FilePermissions_UserId",
+                table: "FilePermissions",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Roles_Name",
+                table: "Roles",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SecureFiles_OwnerId",
+                table: "SecureFiles",
+                column: "OwnerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserRoles_RoleId",
+                table: "UserRoles",
+                column: "RoleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Email",
+                table: "Users",
+                column: "Email",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Username",
+                table: "Users",
+                column: "Username",
+                unique: true);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "EncryptedKeys");
+
+            migrationBuilder.DropTable(
+                name: "FileAuditLogs");
+
+            migrationBuilder.DropTable(
+                name: "FilePermissions");
+
+            migrationBuilder.DropTable(
+                name: "UserRoles");
+
+            migrationBuilder.DropTable(
+                name: "SecureFiles");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
+
+            migrationBuilder.DropTable(
+                name: "Users");
+        }
+    }
+}
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Migrations/20250617123117_InitialCreate.Designer.cs
+===============================
+﻿// <auto-generated />
+using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using SecureFileStorage.Infrastructure.Data;
+
+#nullable disable
+
+namespace SecureFileStorage.Infrastructure.Migrations
+{
+    [DbContext(typeof(SecureStorageDbContext))]
+    [Migration("20250617123117_InitialCreate")]
+    partial class InitialCreate
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.EncryptedKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Algorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedKeyData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReplacementKeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RotatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KeyId")
+                        .IsUnique();
+
+                    b.ToTable("EncryptedKeys");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FileAuditLogs");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GrantedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Permission")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FilePermissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedChachaKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedFileKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedMetadata")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("EncryptionAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("FileHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("HashAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("IV")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Salt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("Tag")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("SecureFiles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<List<string>>("BackupCodes")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("EncryptedPrivateKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsMfaEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyDerivationAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("KeyDerivationIterations")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MfaSecret")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PasswordSalt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("Permissions")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "Owner")
+                        .WithMany("Files")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.Role", "Role")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany("Roles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Navigation("AuditLogs");
+
+                    b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Navigation("Files");
+
+                    b.Navigation("Roles");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Migrations/20250617165108_MakeMfaSecretNullable.cs
+===============================
+﻿using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace SecureFileStorage.Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class MakeMfaSecretNullable : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterColumn<string>(
+                name: "MfaSecret",
+                table: "Users",
+                type: "text",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "text");
+
+            migrationBuilder.AlterColumn<List<string>>(
+                name: "BackupCodes",
+                table: "Users",
+                type: "text[]",
+                nullable: true,
+                oldClrType: typeof(List<string>),
+                oldType: "text[]");
+
+            migrationBuilder.AlterColumn<string>(
+                name: "ReplacementKeyId",
+                table: "EncryptedKeys",
+                type: "text",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "text");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterColumn<string>(
+                name: "MfaSecret",
+                table: "Users",
+                type: "text",
+                nullable: false,
+                defaultValue: "",
+                oldClrType: typeof(string),
+                oldType: "text",
+                oldNullable: true);
+
+            migrationBuilder.AlterColumn<List<string>>(
+                name: "BackupCodes",
+                table: "Users",
+                type: "text[]",
+                nullable: false,
+                oldClrType: typeof(List<string>),
+                oldType: "text[]",
+                oldNullable: true);
+
+            migrationBuilder.AlterColumn<string>(
+                name: "ReplacementKeyId",
+                table: "EncryptedKeys",
+                type: "text",
+                nullable: false,
+                defaultValue: "",
+                oldClrType: typeof(string),
+                oldType: "text",
+                oldNullable: true);
+        }
+    }
+}
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Migrations/20250617165108_MakeMfaSecretNullable.Designer.cs
+===============================
+﻿// <auto-generated />
+using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using SecureFileStorage.Infrastructure.Data;
+
+#nullable disable
+
+namespace SecureFileStorage.Infrastructure.Migrations
+{
+    [DbContext(typeof(SecureStorageDbContext))]
+    [Migration("20250617165108_MakeMfaSecretNullable")]
+    partial class MakeMfaSecretNullable
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.EncryptedKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Algorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedKeyData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReplacementKeyId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RotatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KeyId")
+                        .IsUnique();
+
+                    b.ToTable("EncryptedKeys");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FileAuditLogs");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GrantedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Permission")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FilePermissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedChachaKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedFileKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedMetadata")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("EncryptionAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("FileHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("HashAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("IV")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Salt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("Tag")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("SecureFiles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<List<string>>("BackupCodes")
+                        .HasColumnType("text[]");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("EncryptedPrivateKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsMfaEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyDerivationAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("KeyDerivationIterations")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MfaSecret")
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PasswordSalt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("Permissions")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "Owner")
+                        .WithMany("Files")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.Role", "Role")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany("Roles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Navigation("AuditLogs");
+
+                    b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Navigation("Files");
+
+                    b.Navigation("Roles");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Migrations/20250617183101_AddUserAuditLogTable.cs
+===============================
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace SecureFileStorage.Infrastructure.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddUserAuditLogTable : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_FileAuditLogs_SecureFiles_FileId",
+                table: "FileAuditLogs");
+
+            migrationBuilder.CreateTable(
+                name: "UserAuditLogs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    EventType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Details = table.Column<string>(type: "text", nullable: false),
+                    IpAddress = table.Column<string>(type: "text", nullable: false),
+                    UserAgent = table.Column<string>(type: "text", nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserAuditLogs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserAuditLogs_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAuditLogs_UserId",
+                table: "UserAuditLogs",
+                column: "UserId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_FileAuditLogs_SecureFiles_FileId",
+                table: "FileAuditLogs",
+                column: "FileId",
+                principalTable: "SecureFiles",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_FileAuditLogs_SecureFiles_FileId",
+                table: "FileAuditLogs");
+
+            migrationBuilder.DropTable(
+                name: "UserAuditLogs");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_FileAuditLogs_SecureFiles_FileId",
+                table: "FileAuditLogs",
+                column: "FileId",
+                principalTable: "SecureFiles",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+        }
+    }
+}
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Migrations/20250617183101_AddUserAuditLogTable.Designer.cs
+===============================
+﻿// <auto-generated />
+using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using SecureFileStorage.Infrastructure.Data;
+
+#nullable disable
+
+namespace SecureFileStorage.Infrastructure.Migrations
+{
+    [DbContext(typeof(SecureStorageDbContext))]
+    [Migration("20250617183101_AddUserAuditLogTable")]
+    partial class AddUserAuditLogTable
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.EncryptedKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Algorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedKeyData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReplacementKeyId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RotatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KeyId")
+                        .IsUnique();
+
+                    b.ToTable("EncryptedKeys");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FileAuditLogs");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GrantedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Permission")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FilePermissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedChachaKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedFileKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedMetadata")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("EncryptionAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("FileHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("HashAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("IV")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Salt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("Tag")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("SecureFiles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<List<string>>("BackupCodes")
+                        .HasColumnType("text[]");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("EncryptedPrivateKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsMfaEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyDerivationAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("KeyDerivationIterations")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MfaSecret")
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PasswordSalt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserAuditLogs");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("Permissions")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "Owner")
+                        .WithMany("Files")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserAuditLog", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.Role", "Role")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany("Roles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Navigation("AuditLogs");
+
+                    b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Navigation("Files");
+
+                    b.Navigation("Roles");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Migrations/SecureStorageDbContextModelSnapshot.cs
+===============================
+﻿// <auto-generated />
+using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using SecureFileStorage.Infrastructure.Data;
+
+#nullable disable
+
+namespace SecureFileStorage.Infrastructure.Migrations
+{
+    [DbContext(typeof(SecureStorageDbContext))]
+    partial class SecureStorageDbContextModelSnapshot : ModelSnapshot
+    {
+        protected override void BuildModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.EncryptedKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Algorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedKeyData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReplacementKeyId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RotatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KeyId")
+                        .IsUnique();
+
+                    b.ToTable("EncryptedKeys");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FileAuditLogs");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GrantedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Permission")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("FilePermissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("EncryptedChachaKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedFileKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("EncryptedMetadata")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("EncryptionAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("FileHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("HashAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("IV")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Salt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("Tag")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("SecureFiles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<List<string>>("BackupCodes")
+                        .HasColumnType("text[]");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("EncryptedPrivateKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsMfaEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyDerivationAlgorithm")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("KeyDerivationIterations")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MfaSecret")
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PasswordSalt")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserAuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserAuditLogs");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FileAuditLog", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.FilePermission", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.SecureFile", "File")
+                        .WithMany("Permissions")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "Owner")
+                        .WithMany("Files")
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserAuditLog", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.UserRole", b =>
+                {
+                    b.HasOne("SecureFileStorage.Core.Entities.Role", "Role")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SecureFileStorage.Core.Entities.User", "User")
+                        .WithMany("Roles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.Role", b =>
+                {
+                    b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.SecureFile", b =>
+                {
+                    b.Navigation("AuditLogs");
+
+                    b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("SecureFileStorage.Core.Entities.User", b =>
+                {
+                    b.Navigation("Files");
+
+                    b.Navigation("Roles");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs
+===============================
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/obj/Debug/net8.0/SecureFileStorage.Infrastructure.AssemblyInfo.cs
+===============================
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("SecureFileStorage.Infrastructure")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0813f41632862f69811a17b8c519f83ea45f5d37")]
+[assembly: System.Reflection.AssemblyProductAttribute("SecureFileStorage.Infrastructure")]
+[assembly: System.Reflection.AssemblyTitleAttribute("SecureFileStorage.Infrastructure")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/obj/Debug/net8.0/SecureFileStorage.Infrastructure.GlobalUsings.g.cs
+===============================
+// <auto-generated/>
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Repositories/FileRepository.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Repositories;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Infrastructure.Data;
+
+public class FileRepository : IFileRepository
+{
+    private readonly SecureStorageDbContext _context;
+
+    public FileRepository(SecureStorageDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<SecureFile> GetByIdAsync(Guid id)
+    {
+        return await _context.SecureFiles
+            .Include(f => f.Owner)
+            .Include(f => f.Permissions)
+            .Include(f => f.AuditLogs)
+            .FirstOrDefaultAsync(f => f.Id == id && !f.IsDeleted);
+    }
+
+    public async Task<List<SecureFile>> GetUserFilesAsync(Guid userId)
+    {
+        return await _context.SecureFiles
+            .Where(f => f.OwnerId == userId && !f.IsDeleted)
+            .OrderByDescending(f => f.UploadedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<SecureFile>> GetFilesByKeyIdAsync(string keyId)
+    {
+        return await _context.SecureFiles
+            .Where(f => f.KeyId == keyId && !f.IsDeleted)
+            .ToListAsync();
+    }
+
+    public async Task<SecureFile> CreateAsync(SecureFile file)
+    {
+        _context.SecureFiles.Add(file);
+        await _context.SaveChangesAsync();
+        return file;
+    }
+
+    public async Task<SecureFile> UpdateAsync(SecureFile file)
+    {
+        _context.SecureFiles.Update(file);
+        await _context.SaveChangesAsync();
+        return file;
+    }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        var file = await _context.SecureFiles.FindAsync(id);
+        if (file == null) return false;
+        
+        file.IsDeleted = true;
+        file.DeletedAt = DateTime.UtcNow;
+        
+        await _context.SaveChangesAsync();
+        return true;
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Repositories/KeyRepository.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Repositories;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Infrastructure.Data;
+
+public class KeyRepository : IKeyRepository
+{
+    private readonly SecureStorageDbContext _context;
+
+    public KeyRepository(SecureStorageDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<EncryptedKey> GetByIdAsync(string keyId)
+    {
+        return await _context.EncryptedKeys
+            .FirstOrDefaultAsync(k => k.KeyId == keyId);
+    }
+
+    public async Task<List<EncryptedKey>> GetKeysForRotationAsync(int days)
+    {
+        var cutoffDate = DateTime.UtcNow.AddDays(-days);
+        return await _context.EncryptedKeys
+            .Where(k => k.Status == KeyStatus.Active && k.CreatedAt < cutoffDate)
+            .ToListAsync();
+    }
+
+    public async Task<EncryptedKey> CreateAsync(EncryptedKey key)
+    {
+        _context.EncryptedKeys.Add(key);
+        await _context.SaveChangesAsync();
+        return key;
+    }
+
+    public async Task<EncryptedKey> UpdateAsync(EncryptedKey key)
+    {
+        _context.EncryptedKeys.Update(key);
+        await _context.SaveChangesAsync();
+        return key;
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Repositories/UserRepository.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Repositories;
+using System;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Infrastructure.Data;
+
+public class UserRepository : IUserRepository
+{
+    private readonly SecureStorageDbContext _context;
+
+    public UserRepository(SecureStorageDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<User> GetByIdAsync(Guid id)
+    {
+        return await _context.Users
+            .Include(u => u.Roles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
+
+    public async Task<User> GetByUsernameAsync(string username)
+    {
+        return await _context.Users
+            .Include(u => u.Roles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Username == username);
+    }
+
+    public async Task<User> GetByEmailAsync(string email)
+    {
+        return await _context.Users
+            .Include(u => u.Roles)
+            .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Email == email);
+    }
+
+    public async Task<User> CreateAsync(User user)
+    {
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+        return user;
+    }
+
+    public async Task<User> UpdateAsync(User user)
+    {
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+        return user;
+    }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return false;
+        
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Services/AntivirusService.cs
+===============================
+using SecureFileStorage.Core.Interfaces;
+
+namespace SecureFileStorage.Infrastructure.Services;
+
+public class AntivirusService : IAntiVirusService
+{
+    public async Task<ScanResult> ScanFileAsync(Stream fileStream)
+    {
+        // This is a mock implementation
+        // In production, integrate with actual antivirus API (ClamAV, Windows Defender, etc.)
+            
+        await Task.Delay(100); // Simulate scan time
+            
+        // Basic checks
+        if (fileStream.Length > 1_000_000_000) // 1GB
+        {
+            return new ScanResult
+            {
+                IsClean = false,
+                ThreatName = "File.TooLarge",
+                Details = "File exceeds maximum allowed size"
+            };
+        }
+
+        // Check for common malware signatures (simplified)
+        var buffer = new byte[1024];
+        await fileStream.ReadAsync(buffer, 0, buffer.Length);
+        fileStream.Position = 0;
+
+        // Check for EICAR test signature
+        var eicarSignature = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
+        var content = System.Text.Encoding.ASCII.GetString(buffer);
+        if (content.Contains(eicarSignature))
+        {
+            return new ScanResult
+            {
+                IsClean = false,
+                ThreatName = "EICAR-Test-File",
+                Details = "EICAR test file detected"
+            };
+        }
+
+        return new ScanResult
+        {
+            IsClean = true,
+            ThreatName = null,
+            Details = "No threats detected"
+        };
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Services/AuditService.cs
+===============================
+using Microsoft.AspNetCore.Http;
+using System;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Infrastructure.Data;
+
+namespace SecureFileStorage.Infrastructure.Services;
+
+public class AuditService : IAuditService
+{
+    private readonly SecureStorageDbContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public AuditService(SecureStorageDbContext context, IHttpContextAccessor httpContextAccessor)
+    {
+        _context = context;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    public async Task LogFileOperationAsync(Guid userId, Guid fileId, string operation)
+    {
+        var log = new FileAuditLog
+        {
+            Id = Guid.NewGuid(),
+            FileId = fileId,
+            UserId = userId,
+            Action = operation,
+            Details = $"User performed {operation} on file",
+            IpAddress = GetIpAddress(),
+            UserAgent = GetUserAgent(),
+            Timestamp = DateTime.UtcNow
+        };
+
+        _context.FileAuditLogs.Add(log);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task LogFileAccessAsync(Guid userId, Guid fileId, string operation)
+    {
+        await LogFileOperationAsync(userId, fileId, operation);
+    }
+
+
+    public async Task LogSecurityEventAsync(Guid userId, string eventType, string details)
+    {
+        _context.FileAuditLogs.Add(new FileAuditLog 
+        {
+            Id = Guid.NewGuid(),
+            FileId = Guid.Empty, 
+            UserId = userId,
+            Action = eventType,
+            Details = details,
+            IpAddress = GetIpAddress(),
+            UserAgent = GetUserAgent(),
+            Timestamp = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+    }
+    
+    public async Task LogUserSecurityEventAsync(Guid userId, string eventType, string details)
+    {
+        var log = new UserAuditLog 
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            EventType = eventType, 
+            Details = details,
+            IpAddress = GetIpAddress(),
+            UserAgent = GetUserAgent(),
+            Timestamp = DateTime.UtcNow
+        };
+
+        _context.UserAuditLogs.Add(log); 
+        await _context.SaveChangesAsync();
+    }
+
+    private string GetIpAddress()
+    {
+        return _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Unknown";
+    }
+
+    private string GetUserAgent()
+    {
+        return _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString() ?? "Unknown";
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Services/FileService.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Services;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.DTOs;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+
+public class FileService : IFileService
+{
+    private readonly IFileRepository _fileRepository;
+    private readonly IStorageService _storageService;
+
+    public FileService(IFileRepository fileRepository, IStorageService storageService)
+    {
+        _fileRepository = fileRepository;
+        _storageService = storageService;
+    }
+
+    public async Task<SecureFile> SaveFileMetadataAsync(SecureFile file)
+    {
+        return await _fileRepository.CreateAsync(file);
+    }
+
+    public async Task<SecureFile> GetFileMetadataAsync(Guid fileId)
+    {
+        return await _fileRepository.GetByIdAsync(fileId);
+    }
+
+    public async Task<List<FileDto>> GetUserFilesAsync(Guid userId)
+    {
+        var files = await _fileRepository.GetUserFilesAsync(userId);
+        return files.Select(f => new FileDto
+        {
+            Id = f.Id,
+            OriginalFileName = f.OriginalFileName,
+            FileSize = f.FileSize,
+            ContentType = f.ContentType,
+            UploadedAt = f.UploadedAt,
+            IsShared = f.Permissions?.Any(p => p.UserId != userId) ?? false,
+            SharedWith = new List<string>()
+        }).ToList();
+    }
+
+    public async Task SecureDeleteFileAsync(Guid fileId)
+    {
+        var file = await _fileRepository.GetByIdAsync(fileId);
+        if (file != null)
+        {
+            await _storageService.DeleteFileAsync(file.StoragePath);
+            await _fileRepository.DeleteAsync(fileId);
+        }
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Services/HsmService.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Services;
+using System;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.Interfaces;
+
+public class HsmService : IHsmService
+{
+    public async Task<byte[]> WrapKeyAsync(byte[] key, byte[] publicKey)
+    {
+        await Task.Delay(10);
+            
+        using var rsa = RSA.Create();
+        rsa.ImportSubjectPublicKeyInfo(publicKey, out _);
+        
+        return rsa.Encrypt(key, RSAEncryptionPadding.OaepSHA256);
+    }
+
+    public async Task<byte[]> UnwrapKeyAsync(byte[] wrappedKey, byte[] privateKey)
+    {
+        await Task.Delay(10);
+        
+        using var rsa = RSA.Create();
+        rsa.ImportRSAPrivateKey(privateKey, out _);
+        
+        return rsa.Decrypt(wrappedKey, RSAEncryptionPadding.OaepSHA256);
+    }
+
+    public async Task<byte[]> GenerateKeyAsync(int keySize)
+    {
+        await Task.Delay(10);
+        
+        using var rng = RandomNumberGenerator.Create();
+        var key = new byte[keySize];
+        rng.GetBytes(key);
+        
+        return key;
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Services/PermissionService.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Services;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SecureFileStorage.Core.Entities;
+using SecureFileStorage.Core.Interfaces;
+using SecureFileStorage.Infrastructure.Data;
+
+public class PermissionService : IPermissionService
+{
+    private readonly SecureStorageDbContext _context;
+
+    public PermissionService(SecureStorageDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<bool> CanAccessFileAsync(Guid userId, Guid fileId)
+    {
+        var file = await _context.SecureFiles
+            .Include(f => f.Permissions)
+            .FirstOrDefaultAsync(f => f.Id == fileId);
+
+        if (file == null || file.IsDeleted) return false;
+        if (file.OwnerId == userId) return true;
+
+        var permission = file.Permissions?.FirstOrDefault(p => p.UserId == userId);
+        if (permission == null) return false;
+
+        if (permission.ExpiresAt.HasValue && permission.ExpiresAt < DateTime.UtcNow)
+            return false;
+
+        return permission.Permission.HasFlag(PermissionType.Read);
+    }
+
+    public async Task<bool> CanDeleteFileAsync(Guid userId, Guid fileId)
+    {
+        var file = await _context.SecureFiles.FindAsync(fileId);
+        return file != null && file.OwnerId == userId;
+    }
+
+    public async Task<bool> CanShareFileAsync(Guid userId, Guid fileId)
+    {
+        var file = await _context.SecureFiles
+            .Include(f => f.Permissions)
+            .FirstOrDefaultAsync(f => f.Id == fileId);
+
+        if (file == null) return false;
+        if (file.OwnerId == userId) return true;
+
+        var permission = file.Permissions?.FirstOrDefault(p => p.UserId == userId);
+        return permission != null && permission.Permission.HasFlag(PermissionType.Share);
+    }
+
+    public async Task GrantPermissionAsync(Guid fileId, Guid userId, string permission, DateTime? expiresAt)
+    {
+        var permissionType = Enum.Parse<PermissionType>(permission);
+
+        var filePermission = new FilePermission
+        {
+            Id = Guid.NewGuid(),
+            FileId = fileId,
+            UserId = userId,
+            Permission = permissionType,
+            GrantedAt = DateTime.UtcNow,
+            ExpiresAt = expiresAt,
+            GrantedBy = userId
+        };
+
+        _context.FilePermissions.Add(filePermission);
+        await _context.SaveChangesAsync();
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Services/SharingService.cs
+===============================
+using System.Security.Cryptography;
+using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
+using SecureFileStorage.Core.Interfaces;
+
+namespace SecureFileStorage.Infrastructure.Services;
+
+public class SharingService : ISharingService
+{
+    private readonly IDistributedCache _cache;
+    private readonly IPermissionService _permissionService;
+
+    public SharingService(IDistributedCache cache, IPermissionService permissionService)
+    {
+        _cache = cache;
+        _permissionService = permissionService;
+    }
+
+    public async Task<string> CreateShareLinkAsync(Guid fileId, Guid targetUserId, string permissions, DateTime? expiresAt)
+    {
+        var token = GenerateSecureToken();
+        
+        var shareData = new ShareData
+        {
+            FileId = fileId,
+            TargetUserId = targetUserId,
+            Permissions = permissions,
+            ExpiresAt = expiresAt ?? DateTime.UtcNow.AddDays(7)
+        };
+
+        await _cache.SetStringAsync(
+            $"share:{token}", 
+            JsonConvert.SerializeObject(shareData),
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpiration = shareData.ExpiresAt
+            });
+
+        await _permissionService.GrantPermissionAsync(fileId, targetUserId, permissions, expiresAt);
+
+        return token;
+    }
+
+    public async Task<bool> ValidateShareTokenAsync(string token)
+    {
+        var data = await _cache.GetStringAsync($"share:{token}");
+        if (string.IsNullOrEmpty(data)) return false;
+
+        var shareData = JsonConvert.DeserializeObject<ShareData>(data);
+        return shareData.ExpiresAt > DateTime.UtcNow;
+    }
+
+    private string GenerateSecureToken()
+    {
+        using var rng = RandomNumberGenerator.Create();
+        var bytes = new byte[32];
+        rng.GetBytes(bytes);
+        return Convert.ToBase64String(bytes)
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .Replace("=", "");
+    }
+
+    private class ShareData
+    {
+        public Guid FileId { get; set; }
+        public Guid TargetUserId { get; set; }
+        public string Permissions { get; set; }
+        public DateTime ExpiresAt { get; set; }
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Infrastructure/Services/StorageService.cs
+===============================
+namespace SecureFileStorage.Infrastructure.Services;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using SecureFileStorage.Core.Interfaces;
+
+public class StorageService : IStorageService
+{
+    private readonly string _basePath;
+
+    public StorageService()
+    {
+        _basePath = Path.Combine(Directory.GetCurrentDirectory(), "storage");
+        Directory.CreateDirectory(_basePath);
+    }
+
+    public async Task<string> SaveEncryptedFileAsync(byte[] data, string fileName)
+    {
+        var path = Path.Combine(_basePath, fileName);
+        await File.WriteAllBytesAsync(path, data);
+        return fileName;
+    }
+
+    public async Task<byte[]> ReadFileAsync(string path)
+    {
+        var fullPath = Path.Combine(_basePath, path);
+        return await File.ReadAllBytesAsync(fullPath);
+    }
+
+    public async Task<bool> DeleteFileAsync(string path)
+    {
+        var fullPath = Path.Combine(_basePath, path);
+        if (File.Exists(fullPath))
+        {
+            var random = new Random();
+            var fileInfo = new FileInfo(fullPath);
+            var dummy = new byte[fileInfo.Length];
+
+            for (int i = 0; i < 3; i++)
+            {
+                random.NextBytes(dummy);
+                await File.WriteAllBytesAsync(fullPath, dummy);
+            }
+
+            File.Delete(fullPath);
+            return true;
+        }
+        return false;
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Tests/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs
+===============================
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+
+
+
+===============================
+File: ./SecureFileStorage.Tests/obj/Debug/net8.0/SecureFileStorage.Tests.AssemblyInfo.cs
+===============================
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("SecureFileStorage.Tests")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0813f41632862f69811a17b8c519f83ea45f5d37")]
+[assembly: System.Reflection.AssemblyProductAttribute("SecureFileStorage.Tests")]
+[assembly: System.Reflection.AssemblyTitleAttribute("SecureFileStorage.Tests")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+
+
+
+===============================
+File: ./SecureFileStorage.Tests/obj/Debug/net8.0/SecureFileStorage.Tests.GlobalUsings.g.cs
+===============================
+// <auto-generated/>
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+global using global::Xunit;
+
+
+
+===============================
+File: ./SecureFileStorage.Tests/UnitTest1.cs
+===============================
+namespace SecureFileStorage.Tests;
+
+public class UnitTest1
+{
+    [Fact]
+    public void Test1()
+    {
+
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Web/obj/Debug/net8.0/.NETCoreApp,Version=v8.0.AssemblyAttributes.cs
+===============================
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v8.0", FrameworkDisplayName = ".NET 8.0")]
+
+
+
+===============================
+File: ./SecureFileStorage.Web/obj/Debug/net8.0/SecureFileStorage.Web.AssemblyInfo.cs
+===============================
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("SecureFileStorage.Web")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0813f41632862f69811a17b8c519f83ea45f5d37")]
+[assembly: System.Reflection.AssemblyProductAttribute("SecureFileStorage.Web")]
+[assembly: System.Reflection.AssemblyTitleAttribute("SecureFileStorage.Web")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+
+
+
+===============================
+File: ./SecureFileStorage.Web/obj/Debug/net8.0/SecureFileStorage.Web.GlobalUsings.g.cs
+===============================
+// <auto-generated/>
+global using global::Microsoft.Extensions.Configuration;
+global using global::Microsoft.Extensions.DependencyInjection;
+global using global::Microsoft.Extensions.Logging;
+global using global::System;
+global using global::System.Collections.Generic;
+global using global::System.IO;
+global using global::System.Linq;
+global using global::System.Net.Http;
+global using global::System.Threading;
+global using global::System.Threading.Tasks;
+
+
+
+===============================
+File: ./SecureFileStorage.Web/Program.cs
+===============================
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using SecureFileStorage.Web;
+using SecureFileStorage.Web.Services;
+using Microsoft.AspNetCore.Components.Authorization;
+using Blazored.LocalStorage;
+
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+builder.RootComponents.Add<App>("#app");
+builder.RootComponents.Add<HeadOutlet>("head::after");
+
+builder.Services.AddBlazoredLocalStorage();
+
+builder.Services.AddScoped<AuthStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(s => s.GetRequiredService<AuthStateProvider>());
+builder.Services.AddAuthorizationCore();
+
+builder.Services.AddTransient<AuthHeaderHandler>();
+
+builder.Services.AddHttpClient("BackendApi", client =>
+{
+    client.BaseAddress = new Uri("http://localhost:5243/");
+}).AddHttpMessageHandler<AuthHeaderHandler>();
+
+builder.Services.AddScoped(sp => 
+{
+    var factory = sp.GetRequiredService<IHttpClientFactory>();
+    return factory.CreateClient("BackendApi");
+});
+
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+await builder.Build().RunAsync();
+
+
+===============================
+File: ./SecureFileStorage.Web/Services/AuthHeaderHandler.cs
+===============================
+using Blazored.LocalStorage;
+using System.Net.Http.Headers;
+
+namespace SecureFileStorage.Web.Services
+{
+    public class AuthHeaderHandler : DelegatingHandler
+    {
+        private readonly ILocalStorageService _localStorageService;
+
+        public AuthHeaderHandler(ILocalStorageService localStorageService)
+        {
+            _localStorageService = localStorageService;
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Headers.Authorization?.Scheme != "Bearer")
+            {
+                var savedToken = await _localStorageService.GetItemAsStringAsync("authToken");
+
+                if (!string.IsNullOrWhiteSpace(savedToken))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", savedToken);
+                }
+            }
+
+            return await base.SendAsync(request, cancellationToken);
+        }
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Web/Services/AuthService.cs
+===============================
+using System.Text;
+using System.Text.Json;
+using Blazored.LocalStorage; 
+using Microsoft.AspNetCore.Components.Authorization;
+using SecureFileStorage.Core.DTOs;
+
+
+namespace SecureFileStorage.Web.Services;
+
+public class AuthService : IAuthService
+{
+    private readonly HttpClient _httpClient;
+    private readonly ILocalStorageService _localStorage;
+    private readonly AuthStateProvider _authStateProvider;
+    private readonly JsonSerializerOptions _jsonOptions;
+    
+    public AuthService(IHttpClientFactory httpClientFactory, ILocalStorageService localStorage, AuthenticationStateProvider authStateProvider)
+    {
+        _httpClient = httpClientFactory.CreateClient("BackendApi");
+        _localStorage = localStorage;
+        _authStateProvider = (AuthStateProvider)authStateProvider; 
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+    }
+
+    public async Task<LoginResponse?> LoginAsync(string username, string password)
+    {
+        try
+        {
+            var loginRequest = new LoginRequest
+            {
+                Username = username,
+                Password = password
+            };
+
+            var json = JsonSerializer.Serialize(loginRequest, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync("api/auth/login", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var responseJson = await response.Content.ReadAsStringAsync();
+                var loginResponse = JsonSerializer.Deserialize<LoginResponse>(responseJson, _jsonOptions);
+
+                if (loginResponse?.Token != null)
+                {
+                    await _localStorage.SetItemAsStringAsync("authToken", loginResponse.Token);
+                    _authStateProvider.NotifyUserLoggedIn(loginResponse.Token);
+                    return loginResponse;
+                }
+            }
+
+            await _localStorage.RemoveItemAsync("authToken");
+            _authStateProvider.NotifyUserLoggedOut();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Login failed: {ex.Message}");
+            await _localStorage.RemoveItemAsync("authToken");
+            _authStateProvider.NotifyUserLoggedOut();
+            return null;
+        }
+    }
+
+    public async Task LogoutAsync()
+    {
+        await _localStorage.RemoveItemAsync("authToken");
+        _authStateProvider.NotifyUserLoggedOut();
+    }
+
+    public async Task<bool> IsAuthenticatedAsync()
+    {
+        var token = await _localStorage.GetItemAsStringAsync("authToken");
+        return !string.IsNullOrEmpty(token);
+    }
+
+    public async Task<string?> GetTokenAsync()
+    {
+        return await _localStorage.GetItemAsStringAsync("authToken");
+    }
+
+    public void NotifyLogin(string token)
+    {
+        _authStateProvider.NotifyUserLoggedIn(token);
+    }
+
+    public void NotifyLogout()
+    {
+        _authStateProvider.NotifyUserLoggedOut();
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Web/Services/AuthStateProvider.cs
+===============================
+using System.Security.Claims;
+using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Components.Authorization;
+using System.Net.Http.Headers;
+using System.Text.Json;
+
+namespace SecureFileStorage.Web.Services
+{
+    public class AuthStateProvider : AuthenticationStateProvider
+    {
+        private readonly ILocalStorageService _localStorage;
+        private readonly HttpClient _httpClient; 
+
+        public AuthStateProvider(ILocalStorageService localStorage, HttpClient httpClient)
+        {
+            _localStorage = localStorage;
+            _httpClient = httpClient;
+        }
+
+        public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+        {
+            var token = await _localStorage.GetItemAsStringAsync("authToken");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            }
+
+            var claims = ParseClaimsFromJwt(token);
+            var authenticatedUser = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
+
+            return new AuthenticationState(authenticatedUser);
+        }
+
+        public void NotifyUserLoggedIn(string token)
+        {
+            var claims = ParseClaimsFromJwt(token);
+            var authenticatedUser = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
+            var authState = Task.FromResult(new AuthenticationState(authenticatedUser));
+            NotifyAuthenticationStateChanged(authState);
+        }
+
+        public void NotifyUserLoggedOut()
+        {
+            var anonymousUser = new ClaimsPrincipal(new ClaimsIdentity());
+            var authState = Task.FromResult(new AuthenticationState(anonymousUser));
+            NotifyAuthenticationStateChanged(authState);
+        }
+
+        private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
+        {
+            var claims = new List<Claim>();
+            var payload = jwt.Split('.')[1];
+            var jsonBytes = ParseBase64WithoutPadding(payload);
+            var keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonBytes);
+
+            if (keyValuePairs != null)
+            {
+                if (keyValuePairs.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier", out var subClaim))
+                {
+                    claims.Add(new Claim(ClaimTypes.NameIdentifier, subClaim.ToString()!));
+                }
+                if (keyValuePairs.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name", out var nameClaim))
+                {
+                    claims.Add(new Claim(ClaimTypes.Name, nameClaim.ToString()!));
+                }
+                
+                if (keyValuePairs.TryGetValue("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", out var roles))
+                {
+                    if (roles is JsonElement roleElement && roleElement.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var role in roleElement.EnumerateArray())
+                        {
+                            claims.Add(new Claim(ClaimTypes.Role, role.ToString()));
+                        }
+                    }
+                    else
+                    {
+                        claims.Add(new Claim(ClaimTypes.Role, roles.ToString()!));
+                    }
+                }
+            }
+            return claims;
+        }
+
+        private byte[] ParseBase64WithoutPadding(string base64)
+        {
+            switch (base64.Length % 4)
+            {
+                case 2: base64 += "=="; break;
+                case 3: base64 += "="; break;
+            }
+            return Convert.FromBase64String(base64);
+        }
+    }
+}
+
+
+===============================
+File: ./SecureFileStorage.Web/Services/FileService.cs
+===============================
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using SecureFileStorage.Core.DTOs; 
+
+namespace SecureFileStorage.Web.Services;
+
+public class FileService : IFileService
+{
+    private readonly HttpClient _httpClient;
+
+    private readonly JsonSerializerOptions _jsonOptions;
+
+    public FileService(HttpClient httpClient ) 
+    {
+        _httpClient = httpClient;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+    }
+
+    public async Task<List<FileDto>> GetUserFilesAsync()
+    {
+        
+        var response = await _httpClient.GetAsync("api/securefiles");
+        response.EnsureSuccessStatusCode();
+        
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<List<FileDto>>(json, _jsonOptions) ?? new List<FileDto>();
+    }
+
+    public async Task<byte[]> DownloadFileAsync(Guid fileId)
+    {
+        
+        var response = await _httpClient.GetAsync($"api/securefiles/{fileId}/download");
+        response.EnsureSuccessStatusCode();
+        
+        return await response.Content.ReadAsByteArrayAsync();
+    }
+
+    public async Task UploadFileAsync(Stream fileStream, string fileName, string contentType, Action<int>? progressCallback = null)
+    {
+        
+        using var content = new MultipartFormDataContent();
+        using var streamContent = new StreamContent(fileStream);
+        
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        content.Add(streamContent, "file", fileName);
+        
+        progressCallback?.Invoke(50); // Simulate progress
+        
+        var response = await _httpClient.PostAsync("api/securefiles/upload", content);
+        response.EnsureSuccessStatusCode();
+        
+        progressCallback?.Invoke(100);
+    }
+
+    public async Task ShareFileAsync(Guid fileId, string targetEmail, string permissions, DateTime expiresAt)
+    {
+        var shareRequest = new
+        {
+            TargetEmail = targetEmail, // Change to use email directly
+            Permissions = permissions,
+            ExpiresAt = expiresAt
+        };
+        
+        var json = JsonSerializer.Serialize(shareRequest, _jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        
+        var response = await _httpClient.PostAsync($"api/securefiles/{fileId}/share", content);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteFileAsync(Guid fileId)
+    {
+        var response = await _httpClient.DeleteAsync($"api/securefiles/{fileId}");
+        response.EnsureSuccessStatusCode();
+    }
+    
+}
+
+
+===============================
+File: ./SecureFileStorage.Web/Services/IAuthService.cs
+===============================
+using SecureFileStorage.Core.DTOs; 
+
+namespace SecureFileStorage.Web.Services;
+
+public interface IAuthService
+{
+    Task<LoginResponse?> LoginAsync(string username, string password); 
+    Task LogoutAsync();
+    Task<bool> IsAuthenticatedAsync();
+    Task<string?> GetTokenAsync();
+    void NotifyLogin(string token);
+    void NotifyLogout();
+}
+
+
+===============================
+File: ./SecureFileStorage.Web/Services/IFileService.cs
+===============================
+using SecureFileStorage.Core.DTOs;
+
+namespace SecureFileStorage.Web.Services;
+
+public interface IFileService
+{
+    Task<List<FileDto>> GetUserFilesAsync();
+    Task<byte[]> DownloadFileAsync(Guid fileId);
+    Task UploadFileAsync(Stream fileStream, string fileName, string contentType, Action<int>? progressCallback = null);
+    Task ShareFileAsync(Guid fileId, string targetEmail, string permissions, DateTime expiresAt);
+    Task DeleteFileAsync(Guid fileId);
+}
+
+

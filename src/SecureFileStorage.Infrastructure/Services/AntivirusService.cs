@@ -6,13 +6,10 @@ public class AntivirusService : IAntiVirusService
 {
     public async Task<ScanResult> ScanFileAsync(Stream fileStream)
     {
-        // This is a mock implementation
-        // In production, integrate with actual antivirus API (ClamAV, Windows Defender, etc.)
             
-        await Task.Delay(100); // Simulate scan time
-            
-        // Basic checks
-        if (fileStream.Length > 1_000_000_000) // 1GB
+        await Task.Delay(100); 
+        
+        if (fileStream.Length > 1_000_000_000) 
         {
             return new ScanResult
             {
@@ -22,12 +19,12 @@ public class AntivirusService : IAntiVirusService
             };
         }
 
-        // Check for common malware signatures (simplified)
+        
         var buffer = new byte[1024];
         await fileStream.ReadAsync(buffer, 0, buffer.Length);
         fileStream.Position = 0;
 
-        // Check for EICAR test signature
+        
         var eicarSignature = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
         var content = System.Text.Encoding.ASCII.GetString(buffer);
         if (content.Contains(eicarSignature))

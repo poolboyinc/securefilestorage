@@ -15,3 +15,4 @@ C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastruc
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\ref\SecureFileStorage.Infrastructure.dll
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\bin\Debug\net8.0\SecureFileStorage.Infrastructure.runtimeconfig.json
 C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.genruntimeconfig.cache
+C:\Users\Lenovo\RiderProjects\SecureFileStorage\src\SecureFileStorage.Infrastructure\obj\Debug\net8.0\SecureFileStorage.Infrastructure.sourcelink.json
