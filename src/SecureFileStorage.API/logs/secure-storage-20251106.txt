@@ -329,3 +329,189 @@ ORDER BY s."UploadedAt" DESC
 2025-11-06 10:20:21.765 +01:00 [INF] Request finished HTTP/1.1 GET http://localhost:5243/sample-data/weather.json - 404 0 null 5.8263ms
 2025-11-06 10:20:21.768 +01:00 [INF] Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:5243/sample-data/weather.json, Response status code: 404
 2025-11-06 10:20:35.719 +01:00 [INF] Application is shutting down...
+2025-11-06 15:32:39.424 +01:00 [INF] Executed DbCommand (83ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-11-06 15:32:39.722 +01:00 [INF] Executed DbCommand (34ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-11-06 15:32:40.210 +01:00 [INF] Executed DbCommand (214ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "__EFMigrationsHistory" (
+    "MigrationId" character varying(150) NOT NULL,
+    "ProductVersion" character varying(32) NOT NULL,
+    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+);
+2025-11-06 15:32:40.480 +01:00 [INF] Executed DbCommand (34ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2025-11-06 15:32:40.521 +01:00 [INF] Executed DbCommand (35ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2025-11-06 15:32:40.536 +01:00 [INF] Applying migration '20250617123117_InitialCreate'.
+2025-11-06 15:32:40.617 +01:00 [INF] Executed DbCommand (42ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "EncryptedKeys" (
+    "Id" uuid NOT NULL,
+    "KeyId" text NOT NULL,
+    "EncryptedKeyData" bytea NOT NULL,
+    "Algorithm" text NOT NULL,
+    "Status" integer NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "RotatedAt" timestamp with time zone,
+    "ReplacementKeyId" text NOT NULL,
+    CONSTRAINT "PK_EncryptedKeys" PRIMARY KEY ("Id")
+);
+2025-11-06 15:32:40.659 +01:00 [INF] Executed DbCommand (40ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Roles" (
+    "Id" uuid NOT NULL,
+    "Name" character varying(50) NOT NULL,
+    "Description" text NOT NULL,
+    CONSTRAINT "PK_Roles" PRIMARY KEY ("Id")
+);
+2025-11-06 15:32:40.702 +01:00 [INF] Executed DbCommand (41ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Users" (
+    "Id" uuid NOT NULL,
+    "Username" character varying(50) NOT NULL,
+    "Email" character varying(100) NOT NULL,
+    "PasswordHash" bytea NOT NULL,
+    "PasswordSalt" bytea NOT NULL,
+    "IsMfaEnabled" boolean NOT NULL,
+    "MfaSecret" text NOT NULL,
+    "BackupCodes" text[] NOT NULL,
+    "PublicKey" bytea NOT NULL,
+    "EncryptedPrivateKey" bytea NOT NULL,
+    "KeyDerivationAlgorithm" text NOT NULL,
+    "KeyDerivationIterations" integer NOT NULL,
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "LastLoginAt" timestamp with time zone,
+    "IsActive" boolean NOT NULL,
+    CONSTRAINT "PK_Users" PRIMARY KEY ("Id")
+);
+2025-11-06 15:32:40.760 +01:00 [INF] Executed DbCommand (53ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "SecureFiles" (
+    "Id" uuid NOT NULL,
+    "FileName" text NOT NULL,
+    "OriginalFileName" text NOT NULL,
+    "FileSize" bigint NOT NULL,
+    "ContentType" text NOT NULL,
+    "UploadedAt" timestamp with time zone NOT NULL,
+    "OwnerId" uuid NOT NULL,
+    "EncryptionAlgorithm" text NOT NULL,
+    "KeyId" text NOT NULL,
+    "IV" bytea NOT NULL,
+    "Salt" bytea NOT NULL,
+    "Tag" bytea NOT NULL,
+    "EncryptedMetadata" bytea NOT NULL,
+    "EncryptedFileKey" bytea NOT NULL,
+    "EncryptedChachaKey" bytea NOT NULL,
+    "StoragePath" text NOT NULL,
+    "FileHash" bytea NOT NULL,
+    "HashAlgorithm" text NOT NULL,
+    "IsDeleted" boolean NOT NULL,
+    "DeletedAt" timestamp with time zone,
+    CONSTRAINT "PK_SecureFiles" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_SecureFiles_Users_OwnerId" FOREIGN KEY ("OwnerId") REFERENCES "Users" ("Id") ON DELETE RESTRICT
+);
+2025-11-06 15:32:40.800 +01:00 [INF] Executed DbCommand (38ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "UserRoles" (
+    "UserId" uuid NOT NULL,
+    "RoleId" uuid NOT NULL,
+    "AssignedAt" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_UserRoles" PRIMARY KEY ("UserId", "RoleId"),
+    CONSTRAINT "FK_UserRoles_Roles_RoleId" FOREIGN KEY ("RoleId") REFERENCES "Roles" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_UserRoles_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+);
+2025-11-06 15:32:40.844 +01:00 [INF] Executed DbCommand (42ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "FileAuditLogs" (
+    "Id" uuid NOT NULL,
+    "FileId" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "Action" character varying(50) NOT NULL,
+    "Details" text NOT NULL,
+    "IpAddress" text NOT NULL,
+    "UserAgent" text NOT NULL,
+    "Timestamp" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_FileAuditLogs" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_FileAuditLogs_SecureFiles_FileId" FOREIGN KEY ("FileId") REFERENCES "SecureFiles" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_FileAuditLogs_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+);
+2025-11-06 15:32:40.889 +01:00 [INF] Executed DbCommand (40ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "FilePermissions" (
+    "Id" uuid NOT NULL,
+    "FileId" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "Permission" integer NOT NULL,
+    "GrantedAt" timestamp with time zone NOT NULL,
+    "ExpiresAt" timestamp with time zone,
+    "GrantedBy" uuid NOT NULL,
+    CONSTRAINT "PK_FilePermissions" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_FilePermissions_SecureFiles_FileId" FOREIGN KEY ("FileId") REFERENCES "SecureFiles" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_FilePermissions_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+);
+2025-11-06 15:32:40.927 +01:00 [INF] Executed DbCommand (36ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE UNIQUE INDEX "IX_EncryptedKeys_KeyId" ON "EncryptedKeys" ("KeyId");
+2025-11-06 15:32:40.966 +01:00 [INF] Executed DbCommand (37ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_FileAuditLogs_FileId" ON "FileAuditLogs" ("FileId");
+2025-11-06 15:32:41.004 +01:00 [INF] Executed DbCommand (36ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_FileAuditLogs_UserId" ON "FileAuditLogs" ("UserId");
+2025-11-06 15:32:41.043 +01:00 [INF] Executed DbCommand (37ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_FilePermissions_FileId" ON "FilePermissions" ("FileId");
+2025-11-06 15:32:41.081 +01:00 [INF] Executed DbCommand (35ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_FilePermissions_UserId" ON "FilePermissions" ("UserId");
+2025-11-06 15:32:41.119 +01:00 [INF] Executed DbCommand (35ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE UNIQUE INDEX "IX_Roles_Name" ON "Roles" ("Name");
+2025-11-06 15:32:41.159 +01:00 [INF] Executed DbCommand (39ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_SecureFiles_OwnerId" ON "SecureFiles" ("OwnerId");
+2025-11-06 15:32:41.198 +01:00 [INF] Executed DbCommand (36ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_UserRoles_RoleId" ON "UserRoles" ("RoleId");
+2025-11-06 15:32:41.235 +01:00 [INF] Executed DbCommand (35ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE UNIQUE INDEX "IX_Users_Email" ON "Users" ("Email");
+2025-11-06 15:32:41.271 +01:00 [INF] Executed DbCommand (34ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE UNIQUE INDEX "IX_Users_Username" ON "Users" ("Username");
+2025-11-06 15:32:41.310 +01:00 [INF] Executed DbCommand (37ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20250617123117_InitialCreate', '8.0.8');
+2025-11-06 15:32:41.351 +01:00 [INF] Applying migration '20250617165108_MakeMfaSecretNullable'.
+2025-11-06 15:32:41.403 +01:00 [INF] Executed DbCommand (36ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE "Users" ALTER COLUMN "MfaSecret" DROP NOT NULL;
+2025-11-06 15:32:41.439 +01:00 [INF] Executed DbCommand (33ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE "Users" ALTER COLUMN "BackupCodes" DROP NOT NULL;
+2025-11-06 15:32:41.475 +01:00 [INF] Executed DbCommand (33ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE "EncryptedKeys" ALTER COLUMN "ReplacementKeyId" DROP NOT NULL;
+2025-11-06 15:32:41.510 +01:00 [INF] Executed DbCommand (34ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20250617165108_MakeMfaSecretNullable', '8.0.8');
+2025-11-06 15:32:41.562 +01:00 [INF] Applying migration '20250617183101_AddUserAuditLogTable'.
+2025-11-06 15:32:41.696 +01:00 [INF] Executed DbCommand (118ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE "FileAuditLogs" DROP CONSTRAINT "FK_FileAuditLogs_SecureFiles_FileId";
+2025-11-06 15:32:41.739 +01:00 [INF] Executed DbCommand (40ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "UserAuditLogs" (
+    "Id" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "EventType" character varying(50) NOT NULL,
+    "Details" text NOT NULL,
+    "IpAddress" text NOT NULL,
+    "UserAgent" text NOT NULL,
+    "Timestamp" timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_UserAuditLogs" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_UserAuditLogs_Users_UserId" FOREIGN KEY ("UserId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+);
+2025-11-06 15:32:41.780 +01:00 [INF] Executed DbCommand (36ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_UserAuditLogs_UserId" ON "UserAuditLogs" ("UserId");
+2025-11-06 15:32:41.821 +01:00 [INF] Executed DbCommand (38ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+ALTER TABLE "FileAuditLogs" ADD CONSTRAINT "FK_FileAuditLogs_SecureFiles_FileId" FOREIGN KEY ("FileId") REFERENCES "SecureFiles" ("Id") ON DELETE RESTRICT;
+2025-11-06 15:32:41.857 +01:00 [INF] Executed DbCommand (34ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20250617183101_AddUserAuditLogTable', '8.0.8');

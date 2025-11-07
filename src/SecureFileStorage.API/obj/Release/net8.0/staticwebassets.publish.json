@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "gMOnu+ze91X5nk7TRE9FOP9V1eR2OxO65DhcuHZuxiU=",
+  "Source": "SecureFileStorage.API",
+  "BasePath": "_content/SecureFileStorage.API",
+  "Mode": "Default",
+  "ManifestType": "Publish",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

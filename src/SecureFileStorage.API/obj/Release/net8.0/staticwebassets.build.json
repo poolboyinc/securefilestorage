@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "R+XcHMoTiVglNIhkeFST6aShLtNKPoJPNNKCO1ULZvE=",
+  "Source": "SecureFileStorage.API",
+  "BasePath": "_content/SecureFileStorage.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

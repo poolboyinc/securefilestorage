@@ -303,7 +303,7 @@
 </div>
 
 @code {
-    // Fixed: Made files nullable
+
     private List<FileDto>? files;
     private bool isUploading;
     private int uploadProgress;
@@ -320,7 +320,7 @@
         await LoadFiles();
     }
     
-    // Fixed: Added proper await
+
     private async Task LoadFiles()
     {
         try
@@ -330,7 +330,7 @@
         catch (Exception ex)
         {
             await JS.InvokeVoidAsync("alert", $"Failed to load files: {ex.Message}");
-            files = new List<FileDto>(); // Ensure files is not null on error
+            files = new List<FileDto>(); 
         }
     }
     
@@ -342,7 +342,7 @@
     private async Task HandleDrop(DragEventArgs e)
     {
         isDragOver = false;
-        // Handle dropped files - this would require additional JS interop for file access
+
     }
     
     private async Task OnFileSelected(InputFileChangeEventArgs e)

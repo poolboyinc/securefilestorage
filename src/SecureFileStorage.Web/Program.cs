@@ -17,9 +17,18 @@ builder.Services.AddAuthorizationCore();
 
 builder.Services.AddTransient<AuthHeaderHandler>();
 
+/*
 builder.Services.AddHttpClient("BackendApi", client =>
 {
     client.BaseAddress = new Uri("http://localhost:5243/");
+}).AddHttpMessageHandler<AuthHeaderHandler>();
+*/
+
+var backendApiUrl = builder.Configuration.GetValue<string>("BackendApi:BaseAddress") ?? "http://localhost:5243/";
+
+builder.Services.AddHttpClient("BackendApi", client =>
+{
+    client.BaseAddress = new Uri(backendApiUrl);
 }).AddHttpMessageHandler<AuthHeaderHandler>();
 
 builder.Services.AddScoped(sp => 
