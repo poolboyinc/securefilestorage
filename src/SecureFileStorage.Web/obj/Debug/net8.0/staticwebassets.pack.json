@@ -13,6 +13,14 @@
       "PackagePath": "staticwebassets\\SecureFileStorage.Web.styles.css"
     },
     {
+      "Id": "C:\\Users\\Lenovo\\RiderProjects\\SecureFileStorage\\src\\SecureFileStorage.Web\\wwwroot\\appsettings.Production.json",
+      "PackagePath": "staticwebassets\\appsettings.Production.json"
+    },
+    {
+      "Id": "C:\\Users\\Lenovo\\RiderProjects\\SecureFileStorage\\src\\SecureFileStorage.Web\\wwwroot\\appsettings.json",
+      "PackagePath": "staticwebassets\\appsettings.json"
+    },
+    {
       "Id": "C:\\Users\\Lenovo\\RiderProjects\\SecureFileStorage\\src\\SecureFileStorage.Web\\wwwroot\\css\\app.css",
       "PackagePath": "staticwebassets\\css\\app.css"
     },

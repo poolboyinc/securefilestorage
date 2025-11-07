@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "SecureFileStorage.Web",
   "resources": {
-    "hash": "sha256-4kFLPqx76tfqNOCFy5OuhvMi+tKiQF5Lc7KbWvfKPQo=",
+    "hash": "sha256-1CcK43CYh2FdIPV6Q65JaQSYixs04MRFg9Pif1+pFfU=",
     "jsModuleNative": {
       "dotnet.native.8.0.4.o3ifnj94ch.js": "sha256-ju0+XWE0ihz554eKEj0HQ8Opa61xpbUIaX5/MNo8we4="
     },
@@ -221,16 +221,20 @@
       "mscorlib.wasm": "sha256-VCfYgt1mcjITabSTosCDVZ+68ea3Z7kakTFaLNLG+18=",
       "netstandard.wasm": "sha256-YOZxxR9PM3Dltcijfb0Q4FD39DkWZbZ1e2ScbZDvWJ4=",
       "System.Private.CoreLib.wasm": "sha256-NrT1QkAzVU//2wgK9vXdq77lCGvLJ4IOZ+Aegesyanc=",
-      "SecureFileStorage.Core.wasm": "sha256-F5tFAXXaNwAd6Fiknk9Qm2f+YOD4yPqK/Nlmh2Rw0qM=",
-      "SecureFileStorage.Web.wasm": "sha256-WMWHBBuxD//qEDvaTo2yhjp3aQQJsoomYHEVOG2/geE="
+      "SecureFileStorage.Core.wasm": "sha256-rpel189JHdOymg3VagozcfFP8tFMFsdFHU7+NK8MRbs=",
+      "SecureFileStorage.Web.wasm": "sha256-Boj2aKBgFO9Xl+3lt/1VB/MSFNTJux7fTc5GD86Ppm4="
     },
     "pdb": {
-      "SecureFileStorage.Core.pdb": "sha256-Z6MccTxRiQjL4BEos7gmFzZCabTJCnhDdVXn09f8Xu8=",
-      "SecureFileStorage.Web.pdb": "sha256-jg9IGvX5YBBzaRrR6ov5oj0sCwiKG2LJCDrDtc4CmBQ="
+      "SecureFileStorage.Core.pdb": "sha256-slMr32RvmJRPZE4B21jX2C62udNIz8/PdYW1DnFrQKw=",
+      "SecureFileStorage.Web.pdb": "sha256-8haI0a+AwJSGKzgz0fGG/a/CQYX6u9me+xm0f3BDEy4="
     }
   },
   "cacheBootResources": true,
   "debugLevel": -1,
+  "appsettings": [
+    "../appsettings.json",
+    "../appsettings.Production.json"
+  ],
   "globalizationMode": "sharded",
   "extensions": {
     "blazor": {}

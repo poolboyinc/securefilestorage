@@ -10,10 +10,11 @@
 using System;
 using System.Reflection;
 
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("3d0f0e0e-e399-471e-b348-894a29ee27b8")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("SecureFileStorage.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+945dc84f093ec51394d39b6e93b15503fbbe7988")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2cc4bf7cde778d9127f2e28cb4fd7b769b46a7a6")]
 [assembly: System.Reflection.AssemblyProductAttribute("SecureFileStorage.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SecureFileStorage.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
