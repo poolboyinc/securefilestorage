@@ -52,4 +52,4 @@ jobs:
           app-name: 'secure-file-frontend'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_75157727F5614A599BBC2AB25BDFC28F }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C9D76060F0F14523B236876F5E5B7B66 }}
